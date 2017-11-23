@@ -21,22 +21,24 @@ package org.bigbluebutton.modules.present.managers
 	import com.asfusion.mate.events.Dispatcher;
 	
 	import flash.display.DisplayObject;
-	import flash.geom.Point;
 	
 	import mx.core.FlexGlobals;
-	import mx.managers.PopUpManager;
 	
 	import org.bigbluebutton.common.IBbbModuleWindow;
+	import org.bigbluebutton.common.events.CloseWindowEvent;
 	import org.bigbluebutton.common.events.OpenWindowEvent;
+	import org.bigbluebutton.core.Options;
+	import org.bigbluebutton.core.PopUpUtil;
 	import org.bigbluebutton.modules.present.events.PresentModuleEvent;
 	import org.bigbluebutton.modules.present.events.UploadEvent;
+	import org.bigbluebutton.modules.present.model.PresentOptions;
+	import org.bigbluebutton.modules.present.ui.views.FileDownloadWindow;
 	import org.bigbluebutton.modules.present.ui.views.FileUploadWindow;
 	import org.bigbluebutton.modules.present.ui.views.PresentationWindow;
 	
 	public class PresentManager
 	{
 		private var globalDispatcher:Dispatcher;
-		private var uploadWindow:FileUploadWindow;
 		private var presentWindow:PresentationWindow;
 		
 		public function PresentManager() {
@@ -47,14 +49,17 @@ package org.bigbluebutton.modules.present.managers
 			if (presentWindow != null){ 
 				return;
 			}
+			var presentOptions:PresentOptions = Options.getOptions(PresentOptions) as PresentOptions;
 			presentWindow = new PresentationWindow();
-			presentWindow.visible = (e.data.showPresentWindow == "true");
-			presentWindow.showControls = (e.data.showWindowControls == "true");
+			presentWindow.visible = presentOptions.showPresentWindow;
+			presentWindow.showControls = presentOptions.showWindowControls;
 			openWindow(presentWindow);
 		}
 		
 		public function handleStopModuleEvent():void{
-			presentWindow.close();
+			var event:CloseWindowEvent = new CloseWindowEvent(CloseWindowEvent.CLOSE_WINDOW_EVENT);
+			event.window = presentWindow;
+			globalDispatcher.dispatchEvent(event);
 		}
 		
 		private function openWindow(window:IBbbModuleWindow):void{
@@ -62,24 +67,25 @@ package org.bigbluebutton.modules.present.managers
 			event.window = window;
 			globalDispatcher.dispatchEvent(event);
 		}
-	
-		public function handleOpenUploadWindow(e:UploadEvent):void{
-			if (uploadWindow != null) return;
 
-			uploadWindow = FileUploadWindow(PopUpManager.createPopUp(FlexGlobals.topLevelApplication as DisplayObject, FileUploadWindow, true));
-			uploadWindow.maxFileSize = e.maxFileSize;
-			
-			var point1:Point = new Point();
-			point1.x = FlexGlobals.topLevelApplication.width / 2;
-			point1.y = FlexGlobals.topLevelApplication.height / 2;  
-			
-			uploadWindow.x = point1.x - (uploadWindow.width/2);
-			uploadWindow.y = point1.y - (uploadWindow.height/2);
+		public function handleOpenUploadWindow(e:UploadEvent):void{
+			// Never use "center" true with FileUploadWindow
+			var uploadWindow : FileUploadWindow = PopUpUtil.createModalPopUp(FlexGlobals.topLevelApplication as DisplayObject, FileUploadWindow, false) as FileUploadWindow;
+			if (uploadWindow) {
+				uploadWindow.maxFileSize = e.maxFileSize;
+			}
 		}
 		
 		public function handleCloseUploadWindow():void{
-			PopUpManager.removePopUp(uploadWindow);
-			uploadWindow = null;
+			PopUpUtil.removePopUp(FileUploadWindow);
+		}
+
+		public function handleOpenDownloadWindow():void {
+			PopUpUtil.createModalPopUp(FlexGlobals.topLevelApplication as DisplayObject, FileDownloadWindow, true) as FileDownloadWindow;
+		}
+
+		public function handleCloseDownloadWindow():void {
+			PopUpUtil.removePopUp(FileDownloadWindow);
 		}
 	}
 }

@@ -16,10 +16,9 @@ public class Constants {
   public static final String AUTH_TOKEN                      = "auth_token";
   public static final String ROLE                            = "role";
   public static final String EXT_USER_ID                     = "external_user_id";
-  public static final String EXTERN_USERID                  = "extern_userid";
+  public static final String EXTERN_USERID                   = "extern_userid";
   public static final String REQUESTER_ID                    = "requester_id";
   public static final String REPLY_TO                        = "reply_to";
-  public static final String LOWERED_BY                      = "lowered_by";
   public static final String STREAM                          = "stream";
   public static final String LOCKED                          = "locked";
   public static final String SETTINGS                        = "settings";
@@ -33,6 +32,7 @@ public class Constants {
   public static final String RECORDING                       = "recording";
   public static final String AUTO_START_RECORDING            = "auto_start_recording";
   public static final String ALLOW_START_STOP_RECORDING      = "allow_start_stop_recording";
+  public static final String WEBCAMS_ONLY_FOR_MODERATOR      = "webcams_only_for_moderator";
   public static final String LAYOUT_ID                       = "layout_id";
   public static final String LISTENONLY                      = "listenOnly";
   public static final String LISTEN_ONLY                     = "listen_only";
@@ -63,14 +63,15 @@ public class Constants {
   public static final String USER                            = "user";
   public static final String MUTED                           = "muted";
   public static final String VOICE_USER                      = "voice_user";
-  public static final String VOICEUSER                      = "voiceUser";
+  public static final String VOICEUSER                       = "voiceUser";
   public static final String RECORDING_FILE                  = "recording_file";
   public static final String ANNOTATION                      = "annotation";
   public static final String WHITEBOARD_ID                   = "whiteboard_id";
-  public static final String ENABLE                          = "enable";
+  public static final String MULTI_USER                      = "multi_user";
   public static final String PRESENTER                       = "presenter";
   public static final String USERS                           = "users";
-  public static final String RAISE_HAND                      = "raise_hand";
+  public static final String EMOJI_STATUS                    = "emoji_status";
+  public static final String EJECTED_BY                      = "ejected_by";
   public static final String HAS_STREAM                      = "has_stream";
   public static final String WEBCAM_STREAM                   = "webcam_stream";
   public static final String PHONE_USER                      = "phone_user"; 
@@ -86,6 +87,7 @@ public class Constants {
   public static final String SHAPES                          = "shapes"; 
   public static final String SHAPE                           = "shape";
   public static final String SHAPE_ID                        = "shape_id";    
+  public static final String FULL_CLEAR                      = "full_clear";
   public static final String PRESENTATION                    = "presentation";
   public static final String ID                              = "id";
   public static final String CURRENT                         = "current";
@@ -119,12 +121,23 @@ public class Constants {
   public static final String FROM_TIME                       = "from_time";
   public static final String PERM_DISABLE_CAM                = "disableCam";
   public static final String PERM_DISABLE_MIC                = "disableMic";
-  public static final String PERM_DISABLE_PRIVCHAT           = "disablePrivChat";
-  public static final String PERM_DISABLE_PUBCHAT            = "disablePubChat";
+  public static final String PERM_DISABLE_PRIVCHAT           = "disablePrivateChat";
+  public static final String PERM_DISABLE_PUBCHAT            = "disablePublicChat";
   public static final String PERM_LOCKED_LAYOUT              = "lockedLayout";
   public static final String PERM_LOCK_ON_JOIN               = "lockOnJoin";
   public static final String PERM_LOCK_ON_JOIN_CONFIG        = "lockOnJoinConfigurable";
   public static final String ENABLED                         = "enabled";
+  public static final String AVATAR_URL                      = "avatarURL";
+  public static final String STUNS                           = "stuns";
+  public static final String TURNS                           = "turns";
+  public static final String USERNAME                        = "username";
+  public static final String URL                             = "url";
+  public static final String TTL                             = "ttl";
+  public static final String PASSWORD                        = "password";
+  public static final String GUEST                           = "guest";
+  public static final String WAITING_FOR_ACCEPTANCE          = "waiting_for_acceptance";
+  public static final String DOWNLOADABLE                    = "downloadable";
+  public static final String GUEST_POLICY                    = "guest_policy";
+  public static final String SET_BY                          = "set_by";
+  public static final String METADATA                        = "metadata";
 }
-
-

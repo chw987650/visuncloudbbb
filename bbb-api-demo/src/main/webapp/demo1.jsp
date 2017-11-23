@@ -1,6 +1,6 @@
 <!--
 
-BigBlueButton - http://www.bigbluebutton.org
+BigBlueButton - http://www.bigbluebutton.org  
 
 Copyright (c) 2008-2009 by respective authors (see below). All rights reserved.
 
@@ -90,7 +90,7 @@ if (request.getParameterMap().isEmpty()) {
 	
 	String joinURL = getJoinURL(request.getParameter("username"), "Demo Meeting", "false", null, null, null);
 
-	if (joinURL.startsWith("http://")) { 
+	if (joinURL.startsWith("http://") || joinURL.startsWith("https://")) { 
 %>
 
 <script language="javascript" type="text/javascript">

@@ -6,6 +6,7 @@ package org.bigbluebutton.core.model
     internal var name:String;
     internal var voiceConf:String;
     internal var externId:String;
+	internal var isBreakout:Boolean;
     internal var defaultAvatarUrl:String;
     internal var dialNumber:String;
     internal var recorded:Boolean;
@@ -13,6 +14,9 @@ package org.bigbluebutton.core.model
     internal var welcomeMessage:String;
     internal var modOnlyMessage:String;
     internal var allowStartStopRecording: Boolean;
+	internal var webcamsOnlyForModerator: Boolean;
+    internal var metadata: Object;
+	internal var muteOnStart:Boolean;
     
     public function MeetingBuilder(id: String, name: String) {
       this.id = id;
@@ -28,6 +32,11 @@ package org.bigbluebutton.core.model
       externId = value;
       return this;
     }
+	
+	public function withBreakout(value : Boolean):MeetingBuilder {
+		isBreakout = value;
+		return this;
+	}
 
     public function withDefaultAvatarUrl(value: String):MeetingBuilder {
       defaultAvatarUrl = value;
@@ -48,6 +57,11 @@ package org.bigbluebutton.core.model
       allowStartStopRecording = value;
       return this;
     }
+	
+	public function withWebcamsOnlyForModerator(value: Boolean):MeetingBuilder {
+		webcamsOnlyForModerator = value;
+		return this;
+	}
     
     public function withDefaultLayout(value: String):MeetingBuilder {
       defaultLayout = value;
@@ -64,6 +78,16 @@ package org.bigbluebutton.core.model
       return this;
     }    
     
+    public function withMetadata(value: Object):MeetingBuilder {
+      metadata = value;
+      return this;
+    }
+	
+	public function withMuteOnStart(value: Boolean):MeetingBuilder {
+		muteOnStart = value;
+		return this;
+	}
+
     public function build():Meeting {
       return new Meeting(this);
     }

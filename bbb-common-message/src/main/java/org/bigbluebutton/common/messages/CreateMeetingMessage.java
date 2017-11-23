@@ -1,6 +1,8 @@
 package org.bigbluebutton.common.messages;
 
-public class CreateMeetingMessage implements IPublishedMessage {
+import java.util.Map;
+
+public class CreateMeetingMessage implements IBigBlueButtonMessage {
 	public static final String CREATE_MEETING_REQUEST_EVENT  = "create_meeting_request";
 	public static final String VERSION = "0.0.1";
 	
@@ -12,15 +14,18 @@ public class CreateMeetingMessage implements IPublishedMessage {
 	public final Long duration;
 	public final Boolean autoStartRecording;
 	public final Boolean allowStartStopRecording;
+	public final Boolean webcamsOnlyForModerator;
 	public final String moderatorPass;
 	public final String viewerPass;
 	public final Long createTime;
 	public final String createDate;
+	public final Map<String, String> metadata;
 	
 	public CreateMeetingMessage(String id, String externalId, String name, Boolean record, String voiceBridge, 
 			                        Long duration, Boolean autoStartRecording, 
-			                        Boolean allowStartStopRecording, String moderatorPass,
-			                        String viewerPass, Long createTime, String createDate) {
+			                        Boolean allowStartStopRecording,Boolean webcamsOnlyForModerator, 
+			                        String moderatorPass, String viewerPass,
+			                        Long createTime, String createDate, Map<String, String> metadata) {
 		this.id = id;
 		this.externalId = externalId;
 		this.name = name;
@@ -29,9 +34,11 @@ public class CreateMeetingMessage implements IPublishedMessage {
 		this.duration = duration;	
 		this.autoStartRecording = autoStartRecording;
 		this.allowStartStopRecording = allowStartStopRecording;
+		this.webcamsOnlyForModerator = webcamsOnlyForModerator;
 		this.moderatorPass = moderatorPass;
 		this.viewerPass = viewerPass;
 		this.createTime = createTime;
 		this.createDate = createDate;
+		this.metadata = metadata;
 	}
 }

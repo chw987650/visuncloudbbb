@@ -22,8 +22,9 @@ require File.expand_path('../edl/audio', __FILE__)
 
 module BigBlueButton
   module EDL
-    FFMPEG = ['ffmpeg', '-y', '-v', 'warning', '-nostats']
-    FFPROBE = ['ffprobe', '-v', 'warning', '-print_format', 'json', '-show_format', '-show_streams', '-count_frames']
+    # max_error_rate is set to ignore errors in poorly encoded webcams/deskshare
+    FFMPEG = ['ffmpeg', '-y', '-v', 'warning', '-nostats', '-max_error_rate', '1.0']
+    FFPROBE = ['ffprobe', '-v', 'warning', '-print_format', 'json', '-show_format', '-show_streams']
 
     def self.encode(audio, video, format, output_basename, audio_offset = 0)
       output = "#{output_basename}.#{format[:extension]}"
@@ -37,9 +38,13 @@ module BigBlueButton
           if audio_offset != 0
             ffmpeg_cmd += ['-itsoffset', ms_to_s(audio_offset)]
           end
+          # Ensure that the entire contents of freeswitch wav files are read
+          if BigBlueButton::EDL::Audio.audio_info(audio)[:format][:format_name] == 'wav'
+            ffmpeg_cmd += ['-ignore_length', '1']
+          end
           ffmpeg_cmd += ['-i', audio]
         end
-        ffmpeg_cmd += [*pass, lastoutput]
+        ffmpeg_cmd += [*pass, '-passlogfile', output_basename, lastoutput]
         Dir.chdir(File.dirname(output)) do
           exitstatus = BigBlueButton.exec_ret(*ffmpeg_cmd)
           raise "ffmpeg failed, exit code #{exitstatus}" if exitstatus != 0

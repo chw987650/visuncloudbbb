@@ -22,8 +22,9 @@ package org.bigbluebutton.modules.users.managers
 	
 	import org.bigbluebutton.common.events.CloseWindowEvent;
 	import org.bigbluebutton.common.events.OpenWindowEvent;
-	import org.bigbluebutton.core.BBB;
+	import org.bigbluebutton.core.Options;
 	import org.bigbluebutton.modules.users.events.StartUsersModuleEvent;
+	import org.bigbluebutton.modules.users.model.BreakoutRoomsOptions;
 	import org.bigbluebutton.modules.users.model.UsersOptions;
 	import org.bigbluebutton.modules.users.views.UsersWindow;
 
@@ -39,7 +40,8 @@ package org.bigbluebutton.modules.users.managers
 		public function moduleStarted(event:StartUsersModuleEvent):void{
 			if (usersWindow == null){
 				usersWindow = new UsersWindow();
-				usersWindow.partOptions = new UsersOptions();
+				usersWindow.partOptions = Options.getOptions(UsersOptions) as UsersOptions;
+				usersWindow.breakoutOptions = Options.getOptions(BreakoutRoomsOptions) as BreakoutRoomsOptions;
 				
 				var e:OpenWindowEvent = new OpenWindowEvent(OpenWindowEvent.OPEN_WINDOW_EVENT);
 				e.window = usersWindow;

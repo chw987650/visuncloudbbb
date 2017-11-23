@@ -18,14 +18,15 @@ You should have received a copy of the GNU Lesser General Public License along
 with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 
 -->
-<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" 
-                xmlns:view="org.bigbluebutton.main.views.*"
+<mx:TitleWindow xmlns:mx="library://ns.adobe.com/flex/mx" 
+				xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:view="org.bigbluebutton.main.views.*"
 				xmlns:common="org.bigbluebutton.common.*"
-                layout="absolute" 
+                layout="absolute"
                 verticalScrollPolicy="off" horizontalScrollPolicy="off"
                 width="630" height="450" creationComplete="onCreationComplete()" styleName="cameraDisplaySettingsWindowStyle" 
-                showCloseButton="false" close="onCancelClicked()" keyDown="handleKeyDown(event)">
-  <mx:Script>
+                showCloseButton="false" keyDown="handleKeyDown(event)">
+  <fx:Script>
     <![CDATA[
 		import com.asfusion.mate.events.Dispatcher;
 		
@@ -33,22 +34,16 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		
 		import mx.collections.ArrayCollection;
 		import mx.collections.ArrayList;
-		import mx.events.CloseEvent;
-		import mx.managers.PopUpManager;
 		
-		import org.bigbluebutton.common.Images;
+		import org.bigbluebutton.common.Media;
 		import org.bigbluebutton.core.BBB;
+		import org.bigbluebutton.core.PopUpUtil;
 		import org.bigbluebutton.core.model.VideoProfile;
 		import org.bigbluebutton.main.events.BBBEvent;
 		import org.bigbluebutton.util.i18n.ResourceUtil;
 		
 		static public var PADDING_HORIZONTAL:Number = 6;
 		static public var PADDING_VERTICAL:Number = 29;
-		
-		private var images:Images = new Images();
-		
-		[Bindable] 
-		private var cancelIcon:Class = images.control_play;
 		
 		[Bindable]
 		public var _videoProfiles:ArrayCollection = new ArrayCollection();
@@ -65,17 +60,14 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		private var selectedCam:int;
 		private var aspectRatio:Number = 1;
 		
-	    override public function move(x:Number, y:Number):void
-	    {
-	       return;
-	    }
-      
 		private function onCreationComplete():void {
             tabIndex = 51;
-            
+		}
+
+		public function updateCameraList() : void {
 			if(defaultCamera != null) {
 				var indexDefault:int = 0;
-				for (var i:int = 0; i < Camera.names.length; i++){
+				for (var i:int = 0; i < Media.availableCameras; i++){
 					if(camerasArray[i].status == OFF_STATE) {
 						var myObj:Object = {}
 						myObj.label = camerasArray[i].label;
@@ -96,19 +88,19 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 			for each (var value:VideoProfile in BBB.videoProfiles) {
 				var item:Object = {index:idx, label:value.name, profile:value};
 				_videoProfiles.addItem(item);
-
+				
 				if (value.id == defaultProfile.id) {
 					cmbVideoProfile.selectedIndex = idx;
 				}
-
+				
 				idx++;
 			}
-
+			
 			if (_videoProfiles.length > 1) {
 				showResControls(true);
 			}
 			
-			if (Camera.names.length > 1) {
+			if (Media.availableCameras > 1) {
 				showVideoControls(true);
 			}
 			
@@ -128,6 +120,9 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		private function updateCamera():void {
+			btnStartPublish.mouseEnabled = false;
+			btnStartPublish.enabled = false;
+			
 			selectedVideoProfile = cmbVideoProfile.selectedItem.profile as VideoProfile;
 			if (camerasAvailable.length > cmbCameraSelector.selectedIndex) {
 				selectedCam = camerasAvailable.getItemAt(cmbCameraSelector.selectedIndex).index;
@@ -135,11 +130,21 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 				selectedCam = -1;
 			}
 			setAspectRatio(selectedVideoProfile.width,selectedVideoProfile.height);
-			_video.successCallback = function():void {
-				btnStartPublish.enabled = true;
-			}
+			_video.successCallback = videoSuccess;
+			_video.failCallback = videoFailure;
 			_video.chromePermissionDenied = chromePermissionDenied;
 			_video.updateCamera(selectedCam,selectedVideoProfile,_canvas.width, _canvas.height,true);
+		}
+		
+		private function videoSuccess():void {
+			btnStartPublish.mouseEnabled = true;
+			btnStartPublish.enabled = true;
+			btnStartPublish.accessibilityName = ResourceUtil.getInstance().getString('bbb.publishVideo.startPublishBtn.toolTip');
+			PopUpUtil.removePopUp(BrowserPermissionHelper);
+		}
+		
+		private function videoFailure(reason:String):void {
+			btnStartPublish.accessibilityName = ResourceUtil.getInstance().getString("bbb.publishVideo.startPublishBtn.errorName", [ResourceUtil.getInstance().getString(reason)]);
 		}
 		
 		private function showResControls(show:Boolean):void {
@@ -153,23 +158,20 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		}
 		
 		private function startPublishing():void {
-			updateCamera();
-			
-			disableCamera();
-			
-			var globalDispatcher:Dispatcher = new Dispatcher();
-			var camEvent:BBBEvent = new BBBEvent(BBBEvent.CAMERA_SETTING);
-			camEvent.payload.cameraIndex = selectedCam;
-			camEvent.payload.videoProfile = selectedVideoProfile;
-			camEvent.payload.publishInClient = publishInClient;
-			
-			globalDispatcher.dispatchEvent(camEvent);
-			
-			var event:BBBEvent = new BBBEvent(BBBEvent.CAM_SETTINGS_CLOSED);
-			event.payload['clicked'] = "close";
-			dispatchEvent(event);
-			
-			PopUpManager.removePopUp(this);
+			if (btnStartPublish.mouseEnabled) {
+				updateCamera();
+				
+				var globalDispatcher:Dispatcher = new Dispatcher();
+				var camEvent:BBBEvent = new BBBEvent(BBBEvent.CAMERA_SETTING);
+				camEvent.payload.cameraIndex = selectedCam;
+				camEvent.payload.videoProfile = selectedVideoProfile;
+				camEvent.payload.publishInClient = publishInClient;
+				camEvent.payload.restream = true;
+				
+				globalDispatcher.dispatchEvent(camEvent);
+				
+				close("close");
+			}
 		}
 		
 		private function disableCamera():void {
@@ -180,31 +182,41 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		
 		private function handleKeyDown(event:KeyboardEvent):void {
 			if (event.charCode == Keyboard.ESCAPE) {
-				disableCamera();
-				this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+				onCancelClicked();
 			}
 		}
 		
 		private function onCancelClicked():void {
-			disableCamera();
-			var event:BBBEvent = new BBBEvent(BBBEvent.CAM_SETTINGS_CLOSED);
-			event.payload['clicked'] = "cancel";
-			dispatchEvent(event);
-			PopUpManager.removePopUp(this);
+			close("cancel");
 		}
-		
-		private function showCameraSettings():void {
-			Security.showSettings(SecurityPanel.CAMERA);
+
+		private function close(payload:String):void {
+			disableCamera();
+			
+			if (_video.successCallback == videoSuccess) _video.successCallback = null;
+			if (_video.failCallback == videoFailure) _video.failCallback = null;
+			
+			var event:BBBEvent = new BBBEvent(BBBEvent.CAM_SETTINGS_CLOSED);
+			event.payload['clicked'] = payload;
+			dispatchEvent(event);
+			PopUpUtil.removePopUp(this);
 		}
       
     ]]>
-  </mx:Script>
+  </fx:Script>
 	
-  <common:TabIndexer startIndex="1" tabIndices="{[textArea, cmbCameraSelector, cmbVideoProfile, btnStartPublish, btnClosePublish]}"/>
+	<fx:Declarations>
+	  <common:TabIndexer startIndex="1" tabIndices="{[textArea, cmbCameraSelector, cmbVideoProfile, btnStartPublish, btnClosePublish]}"/>
+	</fx:Declarations>
   
   <mx:VBox id="webcamDisplay" width="100%" height="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5" styleName="cameraDisplaySettingsWindowBackground">
-    <mx:TextArea width="100%" borderSkin="{null}" editable="false" text="{ResourceUtil.getInstance().getString('bbb.users.settings.webcamSettings')}" 
-                   styleName="webcamSettingsWindowTitleStyle" id="textArea"/>
+    <mx:HBox width="100%" horizontalAlign="center">
+		<common:AdvancedLabel maxWidth="{this.width - 40}"
+							  text="{ResourceUtil.getInstance().getString('bbb.users.settings.webcamSettings')}"
+							  styleName="titleWindowStyle"
+							  id="textArea" />
+    </mx:HBox>
+
     <mx:HRule width="100%"/>
     <mx:Spacer height="1"/>
     
@@ -213,9 +225,8 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		</mx:Box>
         
 		<mx:HBox width="100%" height="10%" horizontalAlign="center" horizontalGap="13" paddingRight="5"> 	
-			<mx:ComboBox id="cmbCameraSelector" styleName="cameraDisplaySettingsWindowCameraSelector" dataProvider="{camerasAvailable}" width="150" visible="true" labelField="label" change="updateCamera()" height="30"/>
-			<mx:ComboBox id="cmbVideoProfile" styleName="cameraDisplaySettingsWindowProfileComboStyle" 
-						 dataProvider="{_videoProfiles}" visible="false" change="updateCamera()"
+			<mx:ComboBox id="cmbCameraSelector" dataProvider="{camerasAvailable}" width="150" visible="true" labelField="label" change="updateCamera()" height="30"/>
+			<mx:ComboBox id="cmbVideoProfile" dataProvider="{_videoProfiles}" visible="false" change="updateCamera()"
                          toolTip="{ResourceUtil.getInstance().getString('bbb.publishVideo.cmbResolution.tooltip')}" height="30" />
     </mx:HBox>
     
@@ -223,7 +234,7 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
     
     <mx:HBox width="100%" height="10%" horizontalAlign="right" horizontalGap="13" paddingRight="5" paddingBottom="5" paddingTop="1">
       <mx:Button id="btnStartPublish" toolTip="{ResourceUtil.getInstance().getString('bbb.publishVideo.startPublishBtn.toolTip')}" 
-                 click="startPublishing()" enabled="false" styleName="cameraDisplaySettingsWindowStartBtn" 
+                 click="startPublishing()" mouseEnabled="false" enabled="true" styleName="cameraDisplaySettingsWindowStartBtn" 
                  label="{ResourceUtil.getInstance().getString('bbb.publishVideo.startPublishBtn.labelText')}"/>
       <mx:Button id="btnClosePublish"   
                  click="onCancelClicked()" 

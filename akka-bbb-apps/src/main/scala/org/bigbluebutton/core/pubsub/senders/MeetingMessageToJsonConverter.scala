@@ -1,9 +1,8 @@
 package org.bigbluebutton.core.pubsub.senders
 
-import org.bigbluebutton.core.messaging.Util
 import org.bigbluebutton.core.api._
-import com.google.gson.Gson
-import scala.collection.JavaConverters._
+import org.bigbluebutton.core.messaging.Util
+import org.bigbluebutton.messages._
 
 object MeetingMessageToJsonConverter {
   def meetingDestroyedToJson(msg: MeetingDestroyed): String = {
@@ -26,6 +25,8 @@ object MeetingMessageToJsonConverter {
     val payload = new java.util.HashMap[String, Any]()
     payload.put(Constants.MEETING_ID, msg.meetingID)
     payload.put(Constants.EXTERNAL_MEETING_ID, msg.externalMeetingID)
+    payload.put(Constants.PARENT_MEETING_ID, msg.parentMeetingID)
+    payload.put(Constants.IS_BREAKOUT, msg.isBreakout)
     payload.put(Constants.NAME, msg.name)
     payload.put(Constants.RECORDED, msg.recorded)
     payload.put(Constants.VOICE_CONF, msg.voiceBridge)
@@ -47,27 +48,11 @@ object MeetingMessageToJsonConverter {
     Util.buildJson(header, payload)
   }
 
-  def voiceRecordingStartedToJson(msg: VoiceRecordingStarted): String = {
+  def meetingEndingToJson(msg: MeetingEnding): String = {
     val payload = new java.util.HashMap[String, Any]()
     payload.put(Constants.MEETING_ID, msg.meetingID)
-    payload.put(Constants.RECORDED, msg.recorded)
-    payload.put(Constants.RECORDING_FILE, msg.recordingFile)
-    payload.put(Constants.VOICE_CONF, msg.confNum)
-    payload.put(Constants.TIMESTAMP, msg.timestamp)
 
-    val header = Util.buildHeader(MessageNames.VOICE_RECORDING_STARTED, None)
-    Util.buildJson(header, payload)
-  }
-
-  def voiceRecordingStoppedToJson(msg: VoiceRecordingStopped): String = {
-    val payload = new java.util.HashMap[String, Any]()
-    payload.put(Constants.MEETING_ID, msg.meetingID)
-    payload.put(Constants.RECORDED, msg.recorded)
-    payload.put(Constants.RECORDING_FILE, msg.recordingFile)
-    payload.put(Constants.VOICE_CONF, msg.confNum)
-    payload.put(Constants.TIMESTAMP, msg.timestamp)
-
-    val header = Util.buildHeader(MessageNames.VOICE_RECORDING_STOPPED, None)
+    val header = Util.buildHeader(MessageNames.MEETING_ENDING, None)
     Util.buildJson(header, payload)
   }
 
@@ -102,31 +87,28 @@ object MeetingMessageToJsonConverter {
     Util.buildJson(header, payload)
   }
 
-  def startRecordingToJson(msg: StartRecording): String = {
-    val payload = new java.util.HashMap[String, Any]()
-    payload.put(Constants.MEETING_ID, msg.meetingID)
-    payload.put(Constants.RECORDED, msg.recorded)
-    payload.put(Constants.REQUESTER_ID, msg.requesterID)
-
-    val header = Util.buildHeader(MessageNames.START_RECORDING, None)
-    Util.buildJson(header, payload)
-  }
-
-  def stopRecordingToJson(msg: StopRecording): String = {
-    val payload = new java.util.HashMap[String, Any]()
-    payload.put(Constants.MEETING_ID, msg.meetingID)
-    payload.put(Constants.RECORDED, msg.recorded)
-    payload.put(Constants.REQUESTER_ID, msg.requesterID)
-
-    val header = Util.buildHeader(MessageNames.STOP_RECORDING, None)
-    Util.buildJson(header, payload)
-  }
-
   def getAllMeetingsReplyToJson(msg: GetAllMeetingsReply): String = {
     val payload = new java.util.HashMap[String, Any]()
     payload.put("meetings", msg.meetings)
 
     val header = Util.buildHeader(MessageNames.GET_ALL_MEETINGS_REPLY, None)
+    Util.buildJson(header, payload)
+  }
+
+  def inactivityWarningToJson(msg: InactivityWarning): String = {
+    val payload = new java.util.HashMap[String, Any]()
+    payload.put(Constants.MEETING_ID, msg.meetingID)
+    payload.put(Constants.DURATION, msg.duration)
+
+    val header = Util.buildHeader(MessageNames.INACTIVITY_WARNING, None)
+    Util.buildJson(header, payload)
+  }
+
+  def meetingIsActiveToJson(msg: MeetingIsActive): String = {
+    val payload = new java.util.HashMap[String, Any]()
+    payload.put(Constants.MEETING_ID, msg.meetingID)
+
+    val header = Util.buildHeader(MessageNames.MEETING_IS_ACTIVE, None)
     Util.buildJson(header, payload)
   }
 }

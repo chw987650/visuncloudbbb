@@ -31,7 +31,6 @@ package org.bigbluebutton.modules.phone.managers {
 	import org.bigbluebutton.core.BBB;
 	import org.bigbluebutton.core.UsersUtil;
 	import org.bigbluebutton.core.managers.ReconnectionManager;
-	import org.bigbluebutton.main.api.JSLog;
 	import org.bigbluebutton.main.events.BBBEvent;
 	import org.bigbluebutton.modules.phone.events.FlashCallConnectedEvent;
 	import org.bigbluebutton.modules.phone.events.FlashCallDisconnectedEvent;
@@ -53,8 +52,11 @@ package org.bigbluebutton.modules.phone.managers {
     private var closedByUser:Boolean = false;
 
 		private var reconnecting:Boolean = false;
+		private var amIListenOnly:Boolean = false;
     
 		private var dispatcher:Dispatcher;
+		
+		private var numNetworkChangeCount:int = 0;
 		
 		public function ConnectionManager():void {
 			dispatcher = new Dispatcher();
@@ -81,19 +83,24 @@ package org.bigbluebutton.modules.phone.managers {
     }
     
 		public function connect():void {				
-      closedByUser = false;
-      var isTunnelling:Boolean = BBB.initConnectionManager().isTunnelling;
-      if (isTunnelling) {
-        uri = uri.replace(/rtmp:/gi, "rtmpt:");
-      }
-	  LOGGER.debug("Connecting to uri=[{0}]", [uri]);
-			NetConnection.defaultObjectEncoding = flash.net.ObjectEncoding.AMF0;	
-			netConnection = new NetConnection();
-			netConnection.proxyType = "best";
-			netConnection.client = this;
-			netConnection.addEventListener( NetStatusEvent.NET_STATUS , netStatus );
-			netConnection.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
-			netConnection.connect(uri, meetingId, externUserId, username);
+			if (!reconnecting || amIListenOnly) {
+				closedByUser = false;
+				var isTunnelling:Boolean = BBB.initConnectionManager().isTunnelling;
+				if (isTunnelling) {
+					uri = uri.replace(/rtmp:/gi, "rtmpt:");
+				}
+				LOGGER.debug("Connecting to uri=[{0}]", [uri]);
+				NetConnection.defaultObjectEncoding = flash.net.ObjectEncoding.AMF0;
+				netConnection = new NetConnection();
+				netConnection.proxyType = "best";
+				netConnection.client = this;
+				netConnection.addEventListener( NetStatusEvent.NET_STATUS , netStatus );
+				netConnection.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
+				netConnection.connect(uri, meetingId, externUserId, username);
+			}
+			if (reconnecting && !amIListenOnly) {
+				handleConnectionSuccess();
+			}
 		}
 
 		public function disconnect(requestByUser:Boolean):void {
@@ -132,7 +139,7 @@ package org.bigbluebutton.modules.phone.managers {
         disconnectedEvent.payload.callbackParameters = [];
         dispatcher.dispatchEvent(disconnectedEvent);
 
-        dispatcher.dispatchEvent(new FlashVoiceConnectionStatusEvent(FlashVoiceConnectionStatusEvent.DISCONNECTED));
+        dispatcher.dispatchEvent(new FlashVoiceConnectionStatusEvent(FlashVoiceConnectionStatusEvent.DISCONNECTED, reconnecting));
       }
     }
 
@@ -140,27 +147,35 @@ package org.bigbluebutton.modules.phone.managers {
       var info : Object = event.info;
       var statusCode : String = info.code;
       
-      var logData:Object = new Object();       
-      logData.user = UsersUtil.getUserData();
+      var logData:Object = UsersUtil.initLogData();
       
       switch (statusCode) {
         case "NetConnection.Connect.Success":
-          LOGGER.debug("Connection success");
-          JSLog.debug("Successfully connected to BBB Voice", logData);
+          numNetworkChangeCount = 0;
+          logData.tags = ["voice", "flash"];
+          logData.message = "Connection success.";
+          LOGGER.info(JSON.stringify(logData));
           handleConnectionSuccess();
           break;
         case "NetConnection.Connect.Failed":
-          LOGGER.debug("Connection failed");
-          JSLog.error("Failed to connect to BBB Voice", logData);
+          logData.tags = ["voice", "flash"];
+		  logData.message = "NetConnection.Connect.Failed from bbb-voice";
+		  LOGGER.info(JSON.stringify(logData));
           handleConnectionFailed();
           break;
         case "NetConnection.Connect.NetworkChange":
-          LOGGER.debug("Detected network change. User might be on a wireless and temporarily dropped connection. Doing nothing. Just making a note.");
-          JSLog.warn("Detected network change to BBB Voice", logData);
+          numNetworkChangeCount++;
+          if (numNetworkChangeCount % 20 == 0) {
+              logData.tags = ["voice", "flash"];
+             logData.message = "Detected network change on bbb-voice";
+             logData.numNetworkChangeCount = numNetworkChangeCount;
+             LOGGER.info(JSON.stringify(logData));
+          }
           break;
         case "NetConnection.Connect.Closed":
-          LOGGER.debug("Connection closed");
-          JSLog.debug("Disconnected from BBB Voice", logData);
+          logData.tags = ["voice", "flash"];
+		  logData.message = "Disconnected from BBB Voice";
+		  LOGGER.info(JSON.stringify(logData));
           handleConnectionClosed();
           break;
       }
@@ -203,12 +218,14 @@ package org.bigbluebutton.modules.phone.managers {
 		//
 		//********************************************************************************************		
 		public function doCall(dialStr:String, listenOnly:Boolean = false):void {
+			amIListenOnly = listenOnly;
 			LOGGER.debug("in doCall - Calling {0} {1}", [dialStr, listenOnly? "*listen only*": ""]);
 			netConnection.call("voiceconf.call", null, "default", username, dialStr, listenOnly.toString());
 		}
 				
 		public function doHangUp():void {			
 			if (isConnected()) {
+				amIListenOnly = false;
         		LOGGER.debug("hanging up call");
 				netConnection.call("voiceconf.hangup", null, "default");
 			}

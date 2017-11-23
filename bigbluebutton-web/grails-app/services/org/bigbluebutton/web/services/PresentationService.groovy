@@ -65,7 +65,6 @@ class PresentationService {
 		log.debug "directory ${directory.absolutePath}"
 		if( directory.exists() ){
 			directory.eachFile(){ file->
-				System.out.println(file.name)
 				if( file.isDirectory() )
 					presentationsList.add( file.name )
 			}
@@ -81,7 +80,7 @@ class PresentationService {
         // Run conversion on another thread.
         Timer t = new Timer(uploadedPres.getName(), false)
 
-        t.runAfter(1000) {
+        t.runAfter(5000) {
             try {
                 documentConversionService.processDocument(uploadedPres)
             } finally {
@@ -103,7 +102,6 @@ class PresentationService {
 	}
 
 	def showThumbnail = {conf, room, presentationName, thumb ->
-		println "Show thumbnails request for $presentationName $thumb"
 		def thumbFile = roomDirectory(conf, room).absolutePath + File.separatorChar + presentationName + File.separatorChar +
 					"thumbnails" + File.separatorChar + "thumb-${thumb}.png"
 		log.debug "showing $thumbFile"
@@ -112,7 +110,6 @@ class PresentationService {
 	}
 
 	def showTextfile = {conf, room, presentationName, textfile ->
-		println "Show textfiles request for $presentationName $textfile"
 		def txt = roomDirectory(conf, room).absolutePath + File.separatorChar + presentationName + File.separatorChar +
 					"textfiles" + File.separatorChar + "slide-${textfile}.txt"
 		log.debug "showing $txt"
@@ -160,6 +157,16 @@ class PresentationService {
 			log.error "${presDir.absolutePath} does NOT exist."
 		}
 		
+	}
+
+	def getFile = {conf, room, presentationName ->
+		println "download request for $presentationName"
+		def fileDirectory = new File(roomDirectory(conf, room).absolutePath + File.separatorChar + presentationName + File.separatorChar +
+"download")
+		//list the files of the download directory ; it must have only 1 file to download
+		def list = fileDirectory.listFiles()
+		//new File(pdfFile)
+		list[0]
 	}
 }
 

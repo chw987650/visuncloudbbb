@@ -19,31 +19,34 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 
 -->
 
-<mx:Button xmlns:mx="http://www.adobe.com/2006/mxml" 
-		   xmlns:mate="http://mate.asfusion.com/" 
-		   styleName="warningButtonStyle"
+<mx:Button xmlns:mx="library://ns.adobe.com/flex/mx"
+		   xmlns:fx="http://ns.adobe.com/mxml/2009"
+		   xmlns:mate="http://mate.asfusion.com/"
 		   toolTip="{ResourceUtil.getInstance().getString('bbb.clientstatus.title')}"
 		   click="handleButtonClick();"
 		   move="handleMove();"
 		   creationComplete="onCreationComplete();"
 		   visible="false" includeInLayout="false">
-	<mate:Listener type="{ClientStatusEvent.SUCCESS_MESSAGE_EVENT}" method="handleSuccessMessageEvent" />
-	<mate:Listener type="{ClientStatusEvent.WARNING_MESSAGE_EVENT}" method="handleWarningMessageEvent" />
-	<mate:Listener type="{ClientStatusEvent.FAIL_MESSAGE_EVENT}" method="handleFailMessageEvent" />
 	
-	<mx:Script>
+	<fx:Declarations>
+		<mate:Listener type="{ClientStatusEvent.SUCCESS_MESSAGE_EVENT}" method="handleSuccessMessageEvent" />
+		<mate:Listener type="{ClientStatusEvent.WARNING_MESSAGE_EVENT}" method="handleWarningMessageEvent" />
+		<mate:Listener type="{ClientStatusEvent.FAIL_MESSAGE_EVENT}" method="handleFailMessageEvent" />
+	</fx:Declarations>
+	
+	<fx:Script>
 		<![CDATA[
 			import flash.globalization.DateTimeFormatter;
 			import flash.globalization.DateTimeStyle;
 			import flash.globalization.LocaleID;
-
+			
 			import mx.controls.ToolTip;
 			import mx.core.FlexGlobals;
-			import mx.managers.PopUpManager;
 			import mx.managers.ToolTipManager;
 			
 			import org.as3commons.logging.api.ILogger;
 			import org.as3commons.logging.api.getClassLogger;
+			import org.bigbluebutton.core.PopUpUtil;
 			import org.bigbluebutton.main.events.ClientStatusEvent;
 			import org.bigbluebutton.util.i18n.ResourceUtil;
 			
@@ -94,6 +97,13 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 
 				messages.push(obj);
 				showNotification();
+
+				var logData:Object = {};
+				logData.type = "ClientNotification";
+				logData.logCode = e.logCode;
+				logData.message = e.message;
+				logData.title = e.title;
+				LOGGER.warn(JSON.stringify(logData));
 			}
 			
 			private function showNotification():void {
@@ -101,7 +111,7 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 					visible = includeInLayout = true;
 					
 					if (hideTimer.running) hideTimer.reset();
-					hideTimer.start()
+					hideTimer.start();
 					
 					if (!notification) {
 						notification = ToolTipManager.createToolTip(ResourceUtil.getInstance().getString("bbb.clientstatus.notification"), 100, 100, "errorTipAbove", this) as ToolTip;
@@ -117,15 +127,16 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 				}
 				return -1;
 			}
-			
-			private function handleButtonClick():void {
-				hideNotification();
-				
-				var clientStatusWindow:ClientStatusWindow = PopUpManager.createPopUp(FlexGlobals.topLevelApplication as DisplayObject, ClientStatusWindow, true) as ClientStatusWindow;
-				clientStatusWindow.setMessages(messages);
-				PopUpManager.centerPopUp(clientStatusWindow);
-			}
-			
+
+            private function handleButtonClick():void {
+                hideNotification();
+
+                var clientStatusWindow:ClientStatusWindow = PopUpUtil.createModalPopUp(FlexGlobals.topLevelApplication as DisplayObject, ClientStatusWindow, true) as ClientStatusWindow
+                if (clientStatusWindow) {
+                    clientStatusWindow.setMessages(messages);
+                }
+            }
+
 			private function handleMove():void {
 				if (notification) {
 					var location:Point = localToGlobal(new Point(0,0));
@@ -144,5 +155,5 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 				hideNotification();
 			}
 		]]>
-	</mx:Script>
+	</fx:Script>
 </mx:Button>

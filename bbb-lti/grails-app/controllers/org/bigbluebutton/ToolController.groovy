@@ -1,5 +1,5 @@
 package org.bigbluebutton
-/* 
+/*
     BigBlueButton open source conferencing system - http://www.bigbluebutton.org/
 
     Copyright (c) 2012 BigBlueButton Inc. and by respective authors (see below).
@@ -17,6 +17,8 @@ package org.bigbluebutton
     with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 */
 
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.List
@@ -54,17 +56,26 @@ class ToolController {
         ltiService.logParameters(params)
 
         if( request.post ){
-            def endPoint = getScheme() + "://" + ltiService.endPoint + "/" + grailsApplication.metadata['app.name'] + "/" + params.get("controller") + (params.get("format") != null? "." + params.get("format"): "")
+            def scheme = request.isSecure()? "https": "http"
+            def endPoint = scheme + "://" + ltiService.endPoint + "/" + grailsApplication.metadata['app.name'] + "/" + params.get("controller") + (params.get("format") != null? "." + params.get("format"): "")
+            log.info "endPoint: " + endPoint
             Map<String, String> result = new HashMap<String, String>()
             ArrayList<String> missingParams = new ArrayList<String>()
 
             if (hasAllRequiredParams(params, missingParams)) {
                 def sanitizedParams = sanitizePrametersForBaseString(params)
                 def consumer = ltiService.getConsumer(params.get(Parameter.CONSUMER_ID))
-                if (consumer != null) {
-                    log.debug "Found consumer with key " + consumer.get("key") //+ " and sharedSecret " + consumer.get("secret")
-                    if (checkValidSignature(params.get(REQUEST_METHOD), endPoint, consumer.get("secret"), sanitizedParams, params.get(Parameter.OAUTH_SIGNATURE))) {
-                        log.debug  "The message has a valid signature."
+                if ( !ltiService.hasRestrictedAccess() || consumer != null) {
+                    if (ltiService.hasRestrictedAccess() ) {
+                        log.debug "Found consumer with key " + consumer.get("key") //+ " and sharedSecret " + consumer.get("secret")
+                    }
+
+                    if (!ltiService.hasRestrictedAccess() || checkValidSignature(params.get(REQUEST_METHOD), endPoint, consumer.get("secret"), sanitizedParams, params.get(Parameter.OAUTH_SIGNATURE))) {
+                        if (!ltiService.hasRestrictedAccess() ) {
+                            log.debug  "Access not restricted, valid signature is not required."
+                        } else {
+                            log.debug  "The message has a valid signature."
+                        }
 
                         def mode = params.containsKey(Parameter.CUSTOM_MODE)? params.get(Parameter.CUSTOM_MODE): ltiService.mode
                         if( !"extended".equals(mode) ) {
@@ -72,16 +83,18 @@ class ToolController {
                             result = doJoinMeeting(params)
                         } else {
                             log.debug  "LTI service running in extended mode."
-                            if ( !Boolean.parseBoolean(params.get(Parameter.CUSTOM_RECORD)) ) {
-                                log.debug  "No bbb_record parameter was sent; immediately redirecting to BBB session!"
+                            if ( !Boolean.parseBoolean(params.get(Parameter.CUSTOM_RECORD)) && !ltiService.allRecordedByDefault() ) {
+                                log.debug  "Parameter custom_record was not sent; immediately redirecting to BBB session!"
                                 result = doJoinMeeting(params)
                             }
                         }
+
                     } else {
                         log.debug  "The message has NOT a valid signature."
                         result.put("resultMessageKey", "InvalidSignature")
                         result.put("resultMessage", "Invalid signature (" + params.get(Parameter.OAUTH_SIGNATURE) + ").")
                     }
+
                 } else {
                     result.put("resultMessageKey", "ConsumerNotFound")
                     result.put("resultMessage", "Consumer with id = " + params.get(Parameter.CONSUMER_ID) + " was not found.")
@@ -102,18 +115,7 @@ class ToolController {
 
             } else {
                 session["params"] = params
-                List<Object> recordings = bigbluebuttonService.getRecordings(params)
-                for(Map<String, Object> recording: recordings){
-                    /// Calculate duration
-                    long endTime = Long.parseLong((String)recording.get("endTime"))
-                    endTime -= (endTime % 1000)
-                    long startTime = Long.parseLong((String)recording.get("startTime"))
-                    startTime -= (startTime % 1000)
-                    int duration = (endTime - startTime) / 60000
-                    /// Add duration
-                    recording.put("duration", duration )
-                }
-                render(view: "index", model: ['params': params, 'recordingList': recordings, 'ismoderator': bigbluebuttonService.isModerator(params)])
+                render(view: "index", model: ['params': params, 'recordingList': getSanitizedRecordings(params), 'ismoderator': bigbluebuttonService.isModerator(params)])
             }
         } else {
             render(text: getCartridgeXML(), contentType: "text/xml", encoding: "UTF-8")
@@ -158,9 +160,6 @@ class ToolController {
             result.put("resultMessageKey", "NotAllowed")
             result.put("resultMessage", "User not allowed to execute this action.")
         } else {
-            log.debug "params: " + params
-            log.debug "sessionParams: " + sessionParams
-
             //Execute the publish command
             result = bigbluebuttonService.doPublishRecordings(params)
         }
@@ -169,19 +168,7 @@ class ToolController {
             log.debug "Error [resultMessageKey:'" + result.get("resultMessageKey") + "', resultMessage:'" + result.get("resultMessage") + "']"
             render(view: "error", model: ['resultMessageKey': result.get("resultMessageKey"), 'resultMessage': result.get("resultMessage")])
         } else {
-            List<Object> recordings = bigbluebuttonService.getRecordings(sessionParams)
-            for(Map<String, Object> recording: recordings){
-                /// Calculate duration
-                long endTime = Long.parseLong((String)recording.get("endTime"))
-                endTime -= (endTime % 1000)
-                long startTime = Long.parseLong((String)recording.get("startTime"))
-                startTime -= (startTime % 1000)
-                int duration = (endTime - startTime) / 60000
-                /// Add duration
-                recording.put("duration", duration )
-            }
-
-            render(view: "index", model: ['params': sessionParams, 'recordingList': recordings, 'ismoderator': bigbluebuttonService.isModerator(sessionParams)])
+            render(view: "index", model: ['params': sessionParams, 'recordingList': getSanitizedRecordings(sessionParams), 'ismoderator': bigbluebuttonService.isModerator(sessionParams)])
         }
     }
 
@@ -200,9 +187,6 @@ class ToolController {
             result.put("resultMessageKey", "NotAllowed")
             result.put("resultMessage", "User not allowed to execute this action.")
         } else {
-            log.debug "params: " + params
-            log.debug "sessionParams: " + sessionParams
-
             //Execute the delete command
             result = bigbluebuttonService.doDeleteRecordings(params)
         }
@@ -211,19 +195,7 @@ class ToolController {
             log.debug "Error [resultMessageKey:'" + result.get("resultMessageKey") + "', resultMessage:'" + result.get("resultMessage") + "']"
             render(view: "error", model: ['resultMessageKey': result.get("resultMessageKey"), 'resultMessage': result.get("resultMessage")])
         } else {
-            List<Object> recordings = bigbluebuttonService.getRecordings(sessionParams)
-            for(Map<String, Object> recording: recordings){
-                /// Calculate duration
-                long endTime = Long.parseLong((String)recording.get("endTime"))
-                endTime -= (endTime % 1000)
-                long startTime = Long.parseLong((String)recording.get("startTime"))
-                startTime -= (startTime % 1000)
-                int duration = (endTime - startTime) / 60000
-                /// Add duration
-                recording.put("duration", duration )
-            }
-
-            render(view: "index", model: ['params': sessionParams, 'recordingList': recordings, 'ismoderator': bigbluebuttonService.isModerator(sessionParams)])
+            render(view: "index", model: ['params': sessionParams, 'recordingList': getSanitizedRecordings(sessionParams), 'ismoderator': bigbluebuttonService.isModerator(sessionParams)])
         }
     }
 
@@ -243,15 +215,14 @@ class ToolController {
 
         setLocalization(params)
         String welcome = message(code: "bigbluebutton.welcome.header", args: ["\"{0}\"", "\"{1}\""]) + "<br>"
-        log.debug "Localized default welcome message: [" + welcome + "]"
 
-		// Check for [custom_]welcome parameter being passed from the LTI
-		if ( params.containsKey(Parameter.CUSTOM_WELCOME) && params.get(Parameter.CUSTOM_WELCOME) != null ) {
-			welcome = params.get(Parameter.CUSTOM_WELCOME) + "<br>"
-			log.debug "Overriding default welcome message with: [" + welcome + "]"
-		}
+        // Check for [custom_]welcome parameter being passed from the LTI
+        if ( params.containsKey(Parameter.CUSTOM_WELCOME) && params.get(Parameter.CUSTOM_WELCOME) != null ) {
+            welcome = params.get(Parameter.CUSTOM_WELCOME) + "<br>"
+            log.debug "Overriding default welcome message with: [" + welcome + "]"
+        }
 
-        if ( params.containsKey(Parameter.CUSTOM_RECORD) && Boolean.parseBoolean(params.get(Parameter.CUSTOM_RECORD)) ) {
+        if ( params.containsKey(Parameter.CUSTOM_RECORD) && Boolean.parseBoolean(params.get(Parameter.CUSTOM_RECORD)) || ltiService.allRecordedByDefault() ) {
             welcome += "<br><b>" + message(code: "bigbluebutton.welcome.record") + "</b><br>"
             log.debug "Adding record warning to welcome message, welcome is now: [" + welcome + "]"
         }
@@ -262,7 +233,6 @@ class ToolController {
         }
 
         welcome += "<br>" + message(code: "bigbluebutton.welcome.footer") + "<br>"
-        log.debug "Localized default welcome message including footer: [" + welcome + "]"
 
         String destinationURL = bigbluebuttonService.getJoinURL(params, welcome, ltiService.mode)
         log.debug "redirecting to " + destinationURL
@@ -311,12 +281,12 @@ class ToolController {
         log.debug "Checking for required parameters"
 
         boolean hasAllParams = true
-        if ( !params.containsKey(Parameter.CONSUMER_ID) ) {
+        if ( ltiService.hasRestrictedAccess() && !params.containsKey(Parameter.CONSUMER_ID) ) {
             missingParams.add(Parameter.CONSUMER_ID);
             hasAllParams = false;
         }
 
-        if ( !params.containsKey(Parameter.OAUTH_SIGNATURE)) {
+        if ( ltiService.hasRestrictedAccess() && !params.containsKey(Parameter.OAUTH_SIGNATURE)) {
             missingParams.add(Parameter.OAUTH_SIGNATURE);
             hasAllParams = false;
         }
@@ -341,33 +311,64 @@ class ToolController {
     private boolean checkValidSignature(String method, String url, String conSecret, Properties postProp, String signature) {
         def validSignature = false
 
-        try {
-            OAuthMessage oam = new OAuthMessage(method, url, postProp.entrySet())
-            //log.debug "OAuthMessage oam = " + oam.toString()
+        if ( ltiService.hasRestrictedAccess() ) {
+            try {
+                OAuthMessage oam = new OAuthMessage(method, url, postProp.entrySet())
+                //log.debug "OAuthMessage oam = " + oam.toString()
 
-            HMAC_SHA1 hmac = new HMAC_SHA1()
-            //log.debug "HMAC_SHA1 hmac = " + hmac.toString()
+                HMAC_SHA1 hmac = new HMAC_SHA1()
+                //log.debug "HMAC_SHA1 hmac = " + hmac.toString()
 
-            hmac.setConsumerSecret(conSecret)
+                hmac.setConsumerSecret(conSecret)
 
-            log.debug "Base Message String = [ " + hmac.getBaseString(oam) + " ]\n"
-            String calculatedSignature = hmac.getSignature(hmac.getBaseString(oam))
-            log.debug "Calculated: " + calculatedSignature + " Received: " + signature
+                log.debug "Base Message String = [ " + hmac.getBaseString(oam) + " ]\n"
+                String calculatedSignature = hmac.getSignature(hmac.getBaseString(oam))
+                log.debug "Calculated: " + calculatedSignature + " Received: " + signature
 
-            validSignature = calculatedSignature.equals(signature)
-        } catch( Exception e ) {
-            log.debug "Exception error: " + e.message
+                validSignature = calculatedSignature.equals(signature)
+            } catch( Exception e ) {
+                log.debug "Exception error: " + e.message
+            }
+
+        } else {
+            validSignature = true
         }
 
         return validSignature
+    }
+
+    /**
+     * Assemble all recordings to be rendered by the view.
+     * @param the HTTP request parameters
+     * @return the key:val pairs needed for Basic LTI
+     */
+    private List<Object> getSanitizedRecordings(Map<String, String> params) {
+        List<Object> recordings = bigbluebuttonService.getRecordings(params)
+        for(Map<String, Object> recording: recordings){
+            /// Calculate duration
+            long endTime = Long.parseLong((String)recording.get("endTime"))
+            endTime -= (endTime % 1000)
+            long startTime = Long.parseLong((String)recording.get("startTime"))
+            startTime -= (startTime % 1000)
+            int duration = (endTime - startTime) / 60000
+            /// Add duration
+            recording.put("duration", duration )
+            /// Calculate reportDate
+            DateFormat df = new SimpleDateFormat(message(code: "tool.view.dateFormat"))
+            String reportDate = df.format(new Date(startTime))
+            /// Add reportDate
+            recording.put("reportDate", reportDate)
+            recording.put("unixDate", startTime / 1000)
+        }
+        return recordings
     }
 
     private String getCartridgeXML(){
         def lti_endpoint = ltiService.retrieveBasicLtiEndpoint() + '/' + grailsApplication.metadata['app.name']
         def launch_url = 'http://' + lti_endpoint + '/tool'
         def secure_launch_url = 'https://' + lti_endpoint + '/tool'
-        def icon = 'http://' + lti_endpoint + '/images/icon.ico'
-        def secure_icon = 'https://' + lti_endpoint + '/images/icon.ico'
+        def icon = 'http://' + lti_endpoint + '/assets/icon.ico'
+        def secure_icon = 'https://' + lti_endpoint + '/assets/icon.ico'
         def isSSLEnabled = ltiService.isSSLEnabled('https://' + lti_endpoint + '/tool/test')
         def cartridge = '' +
                 '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -397,19 +398,5 @@ class ToolController {
                 '</cartridge_basiclti_link>'
 
         return cartridge
-    }
-
-    private String getScheme(){
-        def scheme
-        if ( request.isSecure() ) {
-            scheme = 'https'
-        } else {
-            scheme = request.getHeader("scheme")
-            if ( scheme == null || !(scheme == 'http' || scheme == 'https') ) {
-                scheme = 'http'
-            }
-        }
-
-        return scheme
     }
 }

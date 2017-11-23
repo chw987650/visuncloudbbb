@@ -47,7 +47,6 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 
 	<bean id="web.handler" class="org.bigbluebutton.app.video.VideoApplication">
 	   <property name="packetTimeout" value="10000"/>
-		<property name="recordVideoStream" value="true"/>
 		<property name="eventRecordingService" ref="redisRecorder"/>
 		<property name="messagePublisher" ref="redisPublisher"/>
 	</bean>
@@ -59,6 +58,7 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 	<bean id="redisRecorder" class="org.bigbluebutton.app.video.EventRecordingService">
         <constructor-arg index="0" value="${redis.host}"/>
         <constructor-arg index="1" value="${redis.port}"/>
+        <constructor-arg index="2" value="${redis.keyExpiry}"/>
     </bean>	
     
     <bean id="redisSender" class="org.bigbluebutton.red5.pubsub.MessageSender" 

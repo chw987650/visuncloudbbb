@@ -1,16 +1,9 @@
 package org.bigbluebutton.air.main.views {
 	
-	import flash.events.MouseEvent;
-	
 	import spark.components.ViewNavigator;
+	//import org.bigbluebutton.air.main.viewsold.pagesnavigator.IPagesNavigatorView;
 	
-	public class PagesNavigatorView extends ViewNavigator implements IPagesNavigatorView {
-		override protected function childrenCreated():void {
-			super.childrenCreated();
-		}
-		
-		public function onClick(e:MouseEvent):void {
-		}
+	public class PagesNavigatorView extends ViewNavigator {
 		
 		public function dispose():void {
 		}

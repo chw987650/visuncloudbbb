@@ -1,14 +1,14 @@
 package org.bigbluebutton.air.main.commands {
 	
-	import org.bigbluebutton.air.common.utils.PagesENUM;
-	import org.bigbluebutton.air.main.models.IUserUISession;
+	import org.bigbluebutton.air.common.PageEnum;
+	import org.bigbluebutton.air.main.models.IUISession;
 	
 	import robotlegs.bender.bundles.mvcs.Command;
 	
 	public class NavigateToCommand extends Command {
 		
 		[Inject]
-		public var userUISession:IUserUISession;
+		public var userUISession:IUISession;
 		
 		[Inject]
 		public var to:String;
@@ -22,7 +22,7 @@ package org.bigbluebutton.air.main.commands {
 		override public function execute():void {
 			if (to == null || to == "")
 				throw new Error("NavigateTo should not be empty");
-			if (to == PagesENUM.LAST) {
+			if (to == PageEnum.LAST) {
 				userUISession.popPage(transitionAnimation);
 			} else {
 				userUISession.pushPage(to, details, transitionAnimation);

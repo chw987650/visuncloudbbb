@@ -1,5 +1,8 @@
 package org.bigbluebutton.air.main.services {
 	
+	import com.freshplanet.nativeExtensions.AirCapabilities;
+	
+	import flash.desktop.NativeApplication;
 	import flash.net.URLRequest;
 	
 	import org.bigbluebutton.lib.common.utils.URLFetcher;
@@ -15,11 +18,17 @@ package org.bigbluebutton.air.main.services {
 		
 		private static const URL_REQUEST_INVALID_URL_ERROR:String = "invalidURL";
 		
+		private static const XML_RETURN_CODE_SUCCESS:String = "SUCCESS";
+		
 		private static const URL_REQUEST_GENERIC_ERROR:String = "genericError";
 		
 		private static const XML_RETURN_CODE_FAILED:String = "FAILED";
 		
 		private static const JOIN_URL_EMPTY:String = "emptyJoinUrl";
+		
+		private static const ERROR_QUERY_PARAM:String = "errors=";
+		
+		private static const TOKEN_QUERY_PARAM:String = "sessionToken=";
 		
 		public function get successSignal():ISignal {
 			return _successSignal;
@@ -34,25 +43,87 @@ package org.bigbluebutton.air.main.services {
 				onFailure(JOIN_URL_EMPTY);
 				return;
 			}
-			var fetcher:URLFetcher = new URLFetcher();
+			var fetcher:URLFetcher = new URLFetcher(getUserAgent());
 			fetcher.successSignal.add(onSuccess);
 			fetcher.failureSignal.add(onFailure);
-			fetcher.fetch(joinUrl);
+			fetcher.fetch(joinUrl, null, null);
 		}
 		
-		protected function onSuccess(data:Object, responseUrl:String, urlRequest:URLRequest):void {
-			try {
-				var xml:XML = new XML(data);
-				if (xml.returncode == XML_RETURN_CODE_FAILED) {
-					onFailure(xml.messageKey);
-					return;
-				}
-			} catch (e:Error) {
-				trace("The response is probably not a XML. " + e.message);
-				successSignal.dispatch(urlRequest, responseUrl);
-				return;
+		private function getUserAgent():String {
+			
+			var urlRequest:URLRequest = new URLRequest();
+			
+			// AirCapabilities ANE to get the device information
+			var airCap:AirCapabilities = new AirCapabilities();
+			var deviceName:String = airCap.getMachineName();
+			var userAgent:Array;
+			if (deviceName != "") {
+				// include device name in the user agent looking for the first ")" character as follows:
+				// Mozilla/5.0 (Android; U; pt-BR<; DEVICE NAME>) AppleWebKit/533.19.4 (KHTML, like Gecko) AdobeAIR/16.0
+				userAgent = urlRequest.userAgent.split(")");
+				userAgent[0] += "; " + deviceName;
+				urlRequest.userAgent = userAgent.join(")");
 			}
-			onFailure(URL_REQUEST_GENERIC_ERROR);
+			var OSVersion:String = airCap.getOSVersion();
+			if (OSVersion != "") {
+				// include os version in the user agent looking for the first ";" character as follows:
+				// Mozilla/5.0 (Android< OSVERSION>; U; pt-BR) AppleWebKit/533.19.4 (KHTML, like Gecko) AdobeAIR/16.0
+				userAgent = urlRequest.userAgent.split(";");
+				userAgent[0] += " " + OSVersion;
+				urlRequest.userAgent = userAgent.join(";");
+			}
+			var appXML:XML = NativeApplication.nativeApplication.applicationDescriptor;
+			var ns:Namespace = appXML.namespace();
+			// append client name and version to the end of the user agent
+			urlRequest.userAgent += " " + appXML.ns::name + "/" + appXML.ns::versionNumber;
+			return urlRequest.userAgent;
+		}
+		
+		protected function onSuccess(data:Object, responseUrl:String, urlRequest:URLRequest, httpStatusCode:Number = 200):void {
+			if (httpStatusCode == 200) {
+				try {
+					/* If redirect is set to false on the join url the response will be XML and there will be
+					 * an auth_token in the response that can be used to join. If redirect is set to true or
+					 * left off there will be a sessionToken attached to the responseURL that can be used to
+					 * join. And if there is an issue with the join request there is a redirect and error
+					 *  message is in the responseURL as error.
+					 */
+					var xml:XML = new XML(data);
+					var code:String = xml.returncode.toString();
+					var sessionToken:String;
+					switch (code) {
+						case XML_RETURN_CODE_FAILED:
+							onFailure(xml.messageKey);
+							break;
+						case XML_RETURN_CODE_SUCCESS:
+							sessionToken = xml.auth_token.toString();
+							successSignal.dispatch(urlRequest, responseUrl, sessionToken);
+							break;
+						default:
+							onFailure(URL_REQUEST_GENERIC_ERROR);
+							break;
+					}
+				} catch (e:Error) {
+					trace("The response is probably not a XML. " + e.message);
+					// Need to grab either the error or the sessionToken from the response URL
+					var infoIndex:int = responseUrl.indexOf(ERROR_QUERY_PARAM);
+					if (infoIndex != -1) {
+						var errors:String = unescape(responseUrl.substring(infoIndex + ERROR_QUERY_PARAM.length));
+						trace(errors);
+						onFailure(errors);
+						return
+					}
+					infoIndex = responseUrl.indexOf(TOKEN_QUERY_PARAM);
+					if (infoIndex != -1) {
+						sessionToken = responseUrl.substring(infoIndex + TOKEN_QUERY_PARAM.length);
+						successSignal.dispatch(urlRequest, responseUrl, sessionToken);
+						return;
+					}
+					onFailure(URL_REQUEST_GENERIC_ERROR);
+				}
+			} else {
+				onFailure(URL_REQUEST_GENERIC_ERROR);
+			}
 		}
 		
 		protected function onFailure(reason:String):void {

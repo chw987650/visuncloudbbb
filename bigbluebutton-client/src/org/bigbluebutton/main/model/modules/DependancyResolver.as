@@ -32,7 +32,8 @@ package org.bigbluebutton.main.model.modules
 		private var _modules:Dictionary;
 		
 		/**
-		 * Creates a dependency tree for modules using a topological sort algorithm (Khan, 1962, http://portal.acm.org/beta/citation.cfm?doid=368996.369025)
+		 * Creates a dependency tree for modules using a topological sort algorithm 
+		 * (Khan, 1962, http://portal.acm.org/beta/citation.cfm?doid=368996.369025)
 		 */
 		public function buildDependencyTree(modules:Dictionary):ArrayCollection{
 			this._modules = modules;
@@ -61,13 +62,8 @@ package org.bigbluebutton.main.model.modules
 				var m2:ModuleDescriptor = _modules[key2] as ModuleDescriptor;
 				if (m2.unresolvedDependancies.length != 0){
 					throw new Error("Modules have circular dependancies, please check your config file. Unresolved: " + 
-													m2.getName() + " depends on " + m2.unresolvedDependancies.toString());
+								m2.getName() + " depends on " + m2.unresolvedDependancies.toString());
 				}
-			}
-			LOGGER.debug("Dependency Order: ");
-			for (var u:int = 0; u<sorted.length; u++){
-				LOGGER.debug(((sorted.getItemAt(u) as ModuleDescriptor).getName()));
-				//Alert.show((sorted.getItemAt(u) as ModuleDescriptor).getAttribute("name") as String);
 			}
 
 			return sorted;

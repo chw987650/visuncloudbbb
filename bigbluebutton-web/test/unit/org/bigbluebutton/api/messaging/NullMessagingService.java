@@ -67,25 +67,9 @@ public class NullMessagingService implements MessagingService {
 	  
   }
 
-  public String storeSubscription(String meetingId, String externalMeetingID,
-      String callbackURL) {
-	  // TODO Auto-generated method stub
-	  return null;
-  }
-
-  public boolean removeSubscription(String meetingId, String subscriptionId) {
-	  // TODO Auto-generated method stub
-	  return false;
-  }
-
-  public List<Map<String, String>> listSubscriptions(String meetingId) {
-	  // TODO Auto-generated method stub
-	  return null;
-  }
-
 	@Override
   public void registerUser(String meetingID, String internalUserId,
-      String fullname, String role, String externUserID, String authToken) {
+      String fullname, String role, String externUserID, String authToken, String avatarURL) {
 	  // TODO Auto-generated method stub
 	  
   }

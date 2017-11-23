@@ -30,14 +30,15 @@ package org.bigbluebutton.main.model.modules
 	import org.as3commons.logging.api.ILogger;
 	import org.as3commons.logging.api.getClassLogger;
 	import org.bigbluebutton.common.IBigBlueButtonModule;
-	import org.bigbluebutton.main.model.ConferenceParameters;
-	
+	import org.bigbluebutton.core.UsersUtil;
+	import org.bigbluebutton.core.model.LiveMeeting;
+
 	public class ModuleDescriptor
 	{
 		private static const LOGGER:ILogger = getClassLogger(ModuleDescriptor);      
 
 		private var _attributes:Object;
-		private var _loader:BigBlueButtonModuleLoader;
+		private var _loader:ModuleLoader;
 		private var _module:IBigBlueButtonModule;
 		private var _loaded:Boolean = false;
 		private var _connected:Boolean = false;
@@ -52,7 +53,7 @@ package org.bigbluebutton.main.model.modules
 		{
 			unresolvedDependancies = new ArrayCollection();
 			_attributes = new Object();
-			_loader = new BigBlueButtonModuleLoader();
+			_loader = new ModuleLoader();
 			
 			parseAttributes(attributes);			
 		}
@@ -113,22 +114,17 @@ package org.bigbluebutton.main.model.modules
 			_loader.addEventListener("ready", onReady);
 			_loader.addEventListener("error", onErrorLoading);
 			_loader.url = _attributes.url;
-			LOGGER.debug("Loading {0}", [_attributes.url]);
 			_loader.loadModule();
 		}
 
 		private function onReady(event:Event):void {
-			LOGGER.debug("{0} finished loading", [getName()]);
 			var modLoader:ModuleLoader = event.target as ModuleLoader;
 			if (!(modLoader.child is IBigBlueButtonModule)) throw new Error(getName() + " is not a valid BigBlueButton module");
 			_module = modLoader.child as IBigBlueButtonModule;
 			if (_module != null) {
 				_loaded = true;
 				callbackHandler(ModuleManager.MODULE_LOAD_READY, _attributes.name);
-			} else {
-				LOGGER.error("Module loaded is null.");
-			}
-			
+			} 
 		}	
 
 		private function onLoadProgress(e:ProgressEvent):void {
@@ -137,7 +133,11 @@ package org.bigbluebutton.main.model.modules
 		}	
 		
 		private function onErrorLoading(e:ModuleEvent):void{
-			LOGGER.error("Error loading {0}", [getName() + e.errorText]);
+			var logData:Object = UsersUtil.initLogData();
+			logData.module = getName();
+			logData.tags = ["loading"];
+			logData.message = "Error loading module ".concat(e.errorText);
+			LOGGER.error(JSON.stringify(logData));
 		}
 		
 		private function onLoading(e:Event):void{
@@ -148,7 +148,6 @@ package org.bigbluebutton.main.model.modules
 			if (_attributes.uri == null) return;
 			
 			_attributes.uri = _attributes.uri.replace(/rtmp:/gi, protocol + ":");
-			LOGGER.debug("{0} uri = {1}", [_attributes.name, _attributes.uri]);
 		}
 		
 		public function removeDependancy(module:String):void{
@@ -169,18 +168,26 @@ package org.bigbluebutton.main.model.modules
 			}
 		}
 		
-		public function loadConfigAttributes(conferenceParameters:ConferenceParameters, protocol:String):void{
-			addAttribute("conference", conferenceParameters.conference);
-			addAttribute("username", conferenceParameters.username);
-			addAttribute("userrole", conferenceParameters.role);
-			addAttribute("room", conferenceParameters.room);
-			addAttribute("userid", conferenceParameters.userid);
-			addAttribute("voicebridge", conferenceParameters.voicebridge);
-			addAttribute("webvoiceconf", conferenceParameters.webvoiceconf);
-			addAttribute("welcome", conferenceParameters.welcome);
-			addAttribute("externUserID", conferenceParameters.externUserID);
-			addAttribute("internalUserID", conferenceParameters.internalUserID);
-			addAttribute("meetingID", conferenceParameters.meetingID);
+		public function loadConfigAttributes(protocol:String):void{
+      var intMeetingId: String = LiveMeeting.inst().meeting.internalId;
+      var userName: String = LiveMeeting.inst().me.name;
+      var role: String = LiveMeeting.inst().me.role;
+      var intUserId: String = LiveMeeting.inst().me.id;
+      var voiceConf: String = LiveMeeting.inst().meeting.voiceConf;
+      var welcome: String = LiveMeeting.inst().me.welcome;
+      var extUserId: String = LiveMeeting.inst().me.externalId;
+ 
+			addAttribute("conference", intMeetingId);
+			addAttribute("username", userName);
+			addAttribute("userrole", role);
+			addAttribute("room", intMeetingId);
+			addAttribute("userid", intUserId);
+			addAttribute("voicebridge", voiceConf);
+			addAttribute("webvoiceconf", voiceConf);
+			addAttribute("welcome", welcome);
+			addAttribute("externUserID", extUserId);
+			addAttribute("internalUserID", intUserId);
+			addAttribute("meetingID", intMeetingId);
 			addAttribute("protocol", protocol);
 			useProtocol(protocol);
 		}

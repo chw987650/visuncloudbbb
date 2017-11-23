@@ -4,49 +4,62 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import org.bigbluebutton.common.messages.MessagingConstants;
-import org.red5.logging.Red5LoggerFactory;
-import org.slf4j.Logger;
 
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPubSub;
+import redis.clients.jedis.exceptions.JedisConnectionException;
 
 public class MessageReceiver {
-	private static Logger log = Red5LoggerFactory.getLogger(MessageReceiver.class, "bigbluebutton");
-	
+
 	private ReceivedMessageHandler handler;
 	
-	private JedisPool redisPool;
+	private Jedis jedis;
 	private volatile boolean receiveMessage = false;
 	
 	private final Executor msgReceiverExec = Executors.newSingleThreadExecutor();
 
+	private String host;
+	private int port;
+	
 	public void stop() {
 		receiveMessage = false;
 	}
 	
 	public void start() {
-		log.info("Ready to receive messages from Redis pubsub.");
+		//log.info("Ready to receive messages from Redis pubsub.");
 		try {
 			receiveMessage = true;
-			final Jedis jedis = redisPool.getResource();
+			jedis = new Jedis(host, port);
+			// Set the name of this client to be able to distinguish when doing
+			// CLIENT LIST on redis-cli
+			jedis.clientSetname("BbbRed5AppsSub");
 			
 			Runnable messageReceiver = new Runnable() {
 			    public void run() {
 			    	if (receiveMessage) {
-			    		jedis.psubscribe(new PubSubListener(),
-			    				MessagingConstants.FROM_BBB_APPS_PATTERN); 
+			    		try {
+			    			jedis.psubscribe(new PubSubListener(),
+				    				MessagingConstants.FROM_BBB_APPS_PATTERN);
+			    		} catch(JedisConnectionException ex) {
+			    			//log.warn("Exception on Jedis connection. Resubscribing to pubsub.");
+			    			start();
+			    		}
+			    		 
 			    	}
 			    }
 			};
 			msgReceiverExec.execute(messageReceiver);
 		} catch (Exception e) {
-			log.error("Error subscribing to channels: " + e.getMessage());
+			//log.error("Error subscribing to channels: " + e.getMessage());
 		}			
 	}
 	
-	public void setRedisPool(JedisPool redisPool){
-		this.redisPool = redisPool;
+	public void setHost(String host){
+		this.host = host;
+	}
+	
+	public void setPort(int port) {
+		this.port = port;
 	}
 	
 	public void setMessageHandler(ReceivedMessageHandler handler) {
@@ -71,7 +84,7 @@ public class MessageReceiver {
 
 		@Override
 		public void onPSubscribe(String pattern, int subscribedChannels) {
-			log.debug("Subscribed to the pattern: " + pattern);
+			//log.debug("Subscribed to the pattern: " + pattern);
 		}
 
 		@Override

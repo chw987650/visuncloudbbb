@@ -22,27 +22,27 @@ public class RedisMessagingService implements IMessagingService {
 	    String userid = matcher.group(1).trim();
 	    String name = matcher.group(2).trim();
 			String json = new UserConnectedToGlobalAudio(voiceConf, userid, name).toJson();
-			sender.send(MessagingConstants.TO_MEETING_CHANNEL, json);
+			sender.send(MessagingConstants.TO_AKKA_APPS_CHANNEL, json);
     } else {
     	log.warn("Invalid calleridname [{}] in userConnectedToGlobalAudio as it does not match pattern (.*)-bbbID-(.*)");
 			String json = new UserConnectedToGlobalAudio(voiceConf, callerIdName, callerIdName).toJson();
-			sender.send(MessagingConstants.TO_MEETING_CHANNEL, json);	
+			sender.send(MessagingConstants.TO_AKKA_APPS_CHANNEL, json);
     }
 	}
 
 	@Override
 	public void userDisconnectedFromGlobalAudio(String voiceConf, String callerIdName) {
-  	Matcher matcher = CALLERNAME_PATTERN.matcher(callerIdName);
-    if (matcher.matches()) {			
-	    String userid = matcher.group(1).trim();
-	    String name = matcher.group(2).trim();
-			String json = new UserDisconnectedFromGlobalAudio(voiceConf, userid, name).toJson();
-			sender.send(MessagingConstants.TO_MEETING_CHANNEL, json);
-    } else {
-    	log.warn("Invalid calleridname [{}] in userDisconnectedFromGlobalAudio as it does not match pattern (.*)-bbbID-(.*)");
-			String json = new UserDisconnectedFromGlobalAudio(voiceConf, callerIdName, callerIdName).toJson();
-			sender.send(MessagingConstants.TO_MEETING_CHANNEL, json);	
-    }
+	  	Matcher matcher = CALLERNAME_PATTERN.matcher(callerIdName);
+	    if (matcher.matches()) {			
+		    String userid = matcher.group(1).trim();
+		    String name = matcher.group(2).trim();
+				String json = new UserDisconnectedFromGlobalAudio(voiceConf, userid, name).toJson();
+				sender.send(MessagingConstants.TO_AKKA_APPS_CHANNEL, json);
+	    } else {
+	    	log.warn("Invalid calleridname [{}] in userDisconnectedFromGlobalAudio as it does not match pattern (.*)-bbbID-(.*)");
+				String json = new UserDisconnectedFromGlobalAudio(voiceConf, callerIdName, callerIdName).toJson();
+				sender.send(MessagingConstants.TO_AKKA_APPS_CHANNEL, json);
+	    }
 	}
 
 	public void setRedisMessageSender(MessageSender sender) {

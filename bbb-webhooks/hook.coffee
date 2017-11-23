@@ -36,7 +36,7 @@ module.exports = class Hook
     @externalMeetingID = null
     @queue = []
     @emitter = null
-    @redisClient = redis.createClient()
+    @redisClient = config.redis.client
 
   save: (callback) ->
     @redisClient.hmset config.redis.keys.hook(@id), @toRedis(), (error, reply) =>
@@ -105,7 +105,7 @@ module.exports = class Hook
 
     # gave up trying to perform the callback, remove the hook forever
     @emitter.on "stopped", (error) =>
-      Logger.warn "Hook: too many failed attempts to perform a callback call, removing the hook", JSON.stringify(hook)
+      Logger.warn "Hook: too many failed attempts to perform a callback call, removing the hook for", @callbackURL
       @destroy()
 
   @addSubscription = (callbackURL, meetingID=null, callback) ->
@@ -180,7 +180,7 @@ module.exports = class Hook
   # Gets all hooks from redis to populate the local database.
   # Calls `callback()` when done.
   @resync = (callback) ->
-    client = redis.createClient()
+    client = config.redis.client
     tasks = []
 
     client.smembers config.redis.keys.hooks, (error, hooks) =>

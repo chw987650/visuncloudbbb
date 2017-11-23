@@ -19,11 +19,11 @@
 package org.bigbluebutton.modules.whiteboard.business.shapes
 {
   import org.bigbluebutton.modules.whiteboard.models.Annotation;
-  import org.bigbluebutton.modules.whiteboard.models.WhiteboardModel;
-
+  import org.bigbluebutton.modules.whiteboard.models.AnnotationType;
+ 
   public class TextDrawAnnotation extends DrawAnnotation
   {
-    private var _type:String = DrawObject.TEXT;
+    private var _type:String = AnnotationType.TEXT;
     private var _text:String;
     private var _textBoxWidth:Number = 0;
     private var _textBoxHeight:Number = 0;
@@ -47,27 +47,26 @@ package org.bigbluebutton.modules.whiteboard.business.shapes
       _calcedFontSize = calcedFontSize;
     }
         
-    override public function createAnnotation(wbModel:WhiteboardModel, ctrlKeyPressed:Boolean=false):Annotation {
+    override public function createAnnotation(wbId:String):Annotation {
       var ao:Object = new Object();
-      ao["type"] = DrawObject.TEXT;
+      ao["type"] = AnnotationType.TEXT;
       ao["id"] = _id;
       ao["status"] = _status;  
       ao["text"] = _text;
       ao["fontColor"] = _fontColor;
       ao["x"] = _x;
       ao["y"] = _y;
-	    ao["dataPoints"] = _x + "," + _y;
+      ao["dataPoints"] = _x + "," + _y;
       ao["fontSize"] = _fontSize;
       ao["calcedFontSize"] = _calcedFontSize;
       ao["textBoxWidth"] = _textBoxWidth;
       ao["textBoxHeight"] = _textBoxHeight;
             
-      var wbId:String = wbModel.getCurrentWhiteboardId();
       if (wbId != null) {
         ao["whiteboardId"] = wbId;
       }
             
-      return new Annotation(_id, DrawObject.TEXT, ao);
+      return new Annotation(_id, AnnotationType.TEXT, ao);
     }
   }
 }

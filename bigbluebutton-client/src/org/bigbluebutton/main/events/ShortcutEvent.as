@@ -17,6 +17,7 @@
  *
  */
 package org.bigbluebutton.main.events {
+
 	import flash.events.Event;
 
 	public class ShortcutEvent extends Event {
@@ -34,12 +35,6 @@ package org.bigbluebutton.main.events {
 		public static const FOCUS_CHAT_INPUT:String = 'FOCUS_CHAT_INPUT';
 		public static const UNDO_WHITEBOARD:String = 'UNDO_WHITEBOARD';
 		public static const FOCUS_SLIDE:String = 'FOCUS_SLIDE_VIEW';
-		public static const ADVANCE_MESSAGE:String = 'ADVANCE_MESSAGE';
-		public static const GOBACK_MESSAGE:String = 'GOBACK_MESSAGE';
-		public static const REPEAT_MESSAGE:String = 'REPEAT_MESSAGE';
-		public static const GOLATEST_MESSAGE:String = 'GOLATEST_MESSAGE';
-		public static const GOFIRST_MESSAGE:String = 'GOFIRST_MESSAGE';
-		public static const GOREAD_MESSAGE:String = 'GOREAD_MESSAGE';
 		public static const OPEN_SHORTCUT_WIN:String = 'OPEN_SHORTCUT_WIN';
 		
 		public static const FOCUS_USERS_WINDOW:String = 'FOCUS_USERS_WINDOW';
@@ -51,6 +46,10 @@ package org.bigbluebutton.main.events {
 		public static const SHARE_MICROPHONE:String = 'SHARE_MICROPHONE';
 		public static const SHARE_WEBCAM:String = 'SHARE_WEBCAM';
 		public static const PAUSE_REMOTE_STREAM:String = 'PAUSE_REMOTE_STREAM';
+		
+		public static const FOCUS_CAPTION_WINDOW:String = 'FOCUS_CAPTION_WINDOW';
+		
+		public static const FOCUS_SHARED_NOTES_WINDOW:String = 'FOCUS_SHARED_NOTES_WINDOW';
 		
 		public static const REMOTE_FOCUS_DESKTOP:String = 'REMOTE_FOCUS_DESKTOP';
 		public static const REMOTE_FOCUS_WEBCAM:String = 'REMOTE_FOCUS_WEBCAM';
@@ -71,10 +70,12 @@ package org.bigbluebutton.main.events {
 		public static const FOCUS_CHAT_BOX:String = 'FOCUS_CHAT_BOX';
 		public static const CHANGE_FONT_COLOUR:String = 'CHANGE_FONT_COLOUR';
 		public static const SEND_MESSAGE:String = 'SEND_MESSAGE';
+		public static const CLOSE_PRIVATE:String = 'CLOSE_PRIVATE';
 		
 		//public static const FOCUS_LOOP_END:String = 'FOCUS_LOOP_END';
 		public static const FOCUS_SHORTCUT_BUTTON:String = 'FOCUS_SHORTCUT_BUTTON';
 		public static const MUTE_ALL_BUT_PRES:String = 'MUTE_ALL_BUT_PRES';
+		public static const OPEN_BREAKOUT_ROOMS:String = 'OPEN_BREAKOUT_ROOMS';
 		public static const FOCUS_LOGOUT_BUTTON:String = 'FOCUS_LOGOUT_BUTTON';
 		
 		public static const CLOSE_POLL_STATS:String = 'CLOSE_POLL_STATS';
@@ -100,9 +101,6 @@ package org.bigbluebutton.main.events {
 		public static const SC_REPOST_POLL:String = 'SC_REPOST_POLL';
 		public static const SC_STOP_POLL:String = 'SC_STOP_POLL';
 		
-		// Temporary string to help fix chat message navigation for screen readers
-		public static const CHAT_DEBUG:String = 'CHAT_DEBUG';
-		
 		public var otherUserID:String;
 		
 		public function ShortcutEvent(type:String, bubbles:Boolean=true, cancelable:Boolean=false) {
@@ -119,7 +117,7 @@ package org.bigbluebutton.main.events {
 		-Create a locale string for the hotkey and the description
 		-Add modifier+hotkey string to keyCombos, instantiate it as the relevant ShortCutEvent:
 			keyCombos[modifier+(ResourceUtil.getInstance().getString('bbb.shortcutkey.focus.chat') as String)] = ShortcutEvent.FOCUS_CHAT_WINDOW;
-		-Add a <mate> tag in the MXML file (before mx:Script) which will process the event:
+		-Add a <mate> tag in the MXML file (before fx:Script) which will process the event:
 			<mate:Listener type="{ShortcutEvent.FOCUS_CHAT_WINDOW}" method="focusWindow" />
 		-Add the hotkey locale to one of the resource arrays in ShortcutHelpWindow.mxml
 	

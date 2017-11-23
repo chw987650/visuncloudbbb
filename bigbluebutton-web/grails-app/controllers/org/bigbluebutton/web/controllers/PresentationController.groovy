@@ -19,6 +19,8 @@
 package org.bigbluebutton.web.controllers
 
 import grails.converters.*
+
+import org.apache.commons.io.FilenameUtils;
 import org.bigbluebutton.web.services.PresentationService
 import org.bigbluebutton.presentation.UploadedPresentation
 import org.bigbluebutton.api.MeetingService;
@@ -29,78 +31,72 @@ class PresentationController {
   PresentationService presentationService
   
   def index = {
-    println 'in PresentationController index'
     render(view:'upload-file') 
   }
   
-  def list = {						      				
-    def f = confInfo()
-    println "conference info ${f.conference} ${f.room}"
-    def presentationsList = presentationService.listPresentations(f.conference, f.room)
-
-    if (presentationsList) {
-      withFormat {				
-        xml {
-          render(contentType:"text/xml") {
-            conference(id:f.conference, room:f.room) {
-              presentations {
-                for (s in presentationsList) {
-                  presentation(name:s)
-                }
-              }
-            }
-          }
-        }
-      }
-    } else {
-      render(view:'upload-file')
-    }
-  }
-
-  def delete = {		
-    def filename = params.presentation_name
-    def f = confInfo()
-    presentationService.deletePresentation(f.conference, f.room, filename)
-    flash.message = "file ${filename} removed" 
-    redirect( action:list )
-  }
-
-  def upload = {		
-    println 'PresentationController:upload'
-
+  def upload = {
     def meetingId = params.conference
     def meeting = meetingService.getNotEndedMeetingWithId(meetingId);
     if (meeting == null) {
-      println "Presentation uploaded to non-existant meeting ${meetingId}, ignoring"
       flash.message = 'meeting is not running'
-      return [];
+
+      response.addHeader("Cache-Control", "no-cache")
+      response.contentType = 'plain/text'
+      response.outputStream << 'no-meeting';
+      return null;
     }
 
     def file = request.getFile('fileUpload')
-		if(file && !file.empty) {
-			flash.message = 'Your file has been uploaded'
-			
-			def presFilename = file.getOriginalFilename()
-			def filenameExt = Util.getFilenameExt(presFilename);
+    if (file && !file.empty) {
+      flash.message = 'Your file has been uploaded'
+      def presFilename = file.getOriginalFilename()
+      def filenameExt = FilenameUtils.getExtension(presFilename);
       String presentationDir = presentationService.getPresentationDir()
       def presId = Util.generatePresentationId(presFilename)
       File uploadDir = Util.createPresentationDirectory(meetingId, presentationDir, presId) 
+      
       if (uploadDir != null) {
          def newFilename = Util.createNewFilename(presId, filenameExt)
          def pres = new File(uploadDir.absolutePath + File.separatorChar + newFilename )
          file.transferTo(pres)
          
-         def presentationBaseUrl = presentationService.presentationBaseUrl
-			   UploadedPresentation uploadedPres = new UploadedPresentation(meetingId, presId, presFilename, presentationBaseUrl);
-			   uploadedPres.setUploadedFile(pres);
-			   presentationService.processUploadedPresentation(uploadedPres)
-			 }							             			     	
-		} else {
-			flash.message = 'file cannot be empty'
-		}
+         def isDownloadable = params.boolean('is_downloadable') //instead of params.is_downloadable
 
-    return [];
-  }
+         if(isDownloadable) {
+           log.debug "@Creating download directory..."
+           File downloadDir = Util.downloadPresentationDirectory(uploadDir.absolutePath)
+           if (downloadDir != null) {
+             def notValidCharsRegExp = /[^0-9a-zA-Z_\.]/
+             def downloadableFileName = presFilename.replaceAll(notValidCharsRegExp, '-')
+             def downloadableFile = new File( downloadDir.absolutePath + File.separatorChar + downloadableFileName )
+             downloadableFile << pres.newInputStream()
+           }
+         }
+
+         def presentationBaseUrl = presentationService.presentationBaseUrl
+         UploadedPresentation uploadedPres = new UploadedPresentation(meetingId, presId,
+                 presFilename, presentationBaseUrl, false /* default presentation */);
+
+         if(isDownloadable) {
+           log.debug "@Setting file to be downloadable..."
+           uploadedPres.setDownloadable();
+         }
+
+         uploadedPres.setUploadedFile(pres);
+         presentationService.processUploadedPresentation(uploadedPres)
+
+         response.addHeader("Cache-Control", "no-cache")
+         response.contentType = 'plain/text'
+         response.outputStream << 'upload-success';
+      }
+    } else {
+      flash.message = 'file cannot be empty'
+    }
+
+      response.addHeader("Cache-Control", "no-cache")
+      response.contentType = 'plain/text'
+      response.outputStream << 'file-empty';
+    }
 
   def testConversion = {
     presentationService.testConversionProcess();
@@ -108,7 +104,6 @@ class PresentationController {
 
   //handle external presentation server 
   def delegate = {		
-    println '\nPresentationController:delegate'
     
     def presentation_name = request.getParameter('presentation_name')
     def conference = request.getParameter('conference')
@@ -117,7 +112,7 @@ class PresentationController {
     def totalSlides = request.getParameter('totalSlides')
     def slidesCompleted = request.getParameter('slidesCompleted')
     
-        presentationService.processDelegatedPresentation(conference, room, presentation_name, returnCode, totalSlides, slidesCompleted)
+     presentationService.processDelegatedPresentation(conference, room, presentation_name, returnCode, totalSlides, slidesCompleted)
     redirect( action:list)
   }
   
@@ -129,7 +124,6 @@ class PresentationController {
     
     InputStream is = null;
     try {
-//			def f = confInfo()
       def pres = presentationService.showSlide(conf, rm, presentationName, slide)
       if (pres.exists()) {
         def bytes = pres.readBytes()
@@ -138,52 +132,100 @@ class PresentationController {
         response.outputStream << bytes;
       }	
     } catch (IOException e) {
-      System.out.println("Error reading file.\n" + e.getMessage());
+      log.error("Error reading file.\n" + e.getMessage());
     }
     
     return null;
   }
   
   def showSvgImage = {
-	  def presentationName = params.presentation_name
-	  def conf = params.conference
-	  def rm = params.room
-	  def slide = params.id
-	  
-	  InputStream is = null;
-	  try {
-  //			def f = confInfo()
-		def pres = presentationService.showSvgImage(conf, rm, presentationName, slide)
-		if (pres.exists()) {
-		  def bytes = pres.readBytes()
-		  response.addHeader("Cache-Control", "no-cache")
-		  response.contentType = 'image/svg+xml'
-		  response.outputStream << bytes;
-		}
-	  } catch (IOException e) {
-		System.out.println("Error reading file.\n" + e.getMessage());
-	  }
-	  
-	  return null;
-	}
+    def presentationName = params.presentation_name
+    def conf = params.conference
+    def rm = params.room
+    def slide = params.id
+  
+    InputStream is = null;
+    try {
+      def pres = presentationService.showSvgImage(conf, rm, presentationName, slide)
+      if (pres.exists()) {
+        def bytes = pres.readBytes()
+        response.addHeader("Cache-Control", "no-cache")
+        response.contentType = 'image/svg+xml'
+        response.outputStream << bytes;
+      }
+    } catch (IOException e) {
+      log.error("Error reading file.\n" + e.getMessage());
+    }
+  
+    return null;
+  }
   
   def showThumbnail = {
-    
     def presentationName = params.presentation_name
     def conf = params.conference
     def rm = params.room
     def thumb = params.id
-    println "Controller: Show thumbnails request for $presentationName $thumb"
     
     InputStream is = null;
     try {
       def pres = presentationService.showThumbnail(conf, rm, presentationName, thumb)
       if (pres.exists()) {
-        println "Controller: Sending thumbnails reply for $presentationName $thumb"
         
         def bytes = pres.readBytes()
         response.addHeader("Cache-Control", "no-cache")
         response.contentType = 'image'
+        response.outputStream << bytes;
+      }
+    } catch (IOException e) {
+      log.error("Error reading file.\n" + e.getMessage());
+    }
+    
+    return null;
+  }
+  
+  def showTextfile = {
+    def presentationName = params.presentation_name
+    def conf = params.conference
+    def rm = params.room
+    def textfile = params.id
+    log.debug "Controller: Show textfile request for $presentationName $textfile"
+    
+    InputStream is = null;
+    try {
+      def pres = presentationService.showTextfile(conf, rm, presentationName, textfile)
+      if (pres.exists()) {
+        log.debug "Controller: Sending textfiles reply for $presentationName $textfile"
+  
+        def bytes = pres.readBytes()
+        response.addHeader("Cache-Control", "no-cache")
+        response.contentType = 'plain/text'
+        response.outputStream << bytes;
+      } else {
+        log.debug "$pres does not exist."
+      }
+    } catch (IOException e) {
+      log.error("Error reading file.\n" + e.getMessage());
+    }
+  
+    return null;
+  }
+  
+  def downloadFile = {
+    def presentationName = params.presentation_name
+    def conf = params.conference
+    def rm = params.room
+    println "Controller: Download request for $presentationName"
+
+    InputStream is = null;
+    try {
+      def pres = presentationService.getFile(conf, rm, presentationName)
+      if (pres.exists()) {
+        println "Controller: Sending pdf reply for $presentationName"
+
+        def bytes = pres.readBytes()
+        def responseName = pres.getName();
+        response.addHeader("content-disposition", "filename=$responseName")
+        response.addHeader("Cache-Control", "no-cache")
         response.outputStream << bytes;
       } else {
         println "$pres does not exist."
@@ -191,62 +233,12 @@ class PresentationController {
     } catch (IOException e) {
       println("Error reading file.\n" + e.getMessage());
     }
-    
-    return null;
-  }
-  
-  def showTextfile = {
-	  def presentationName = params.presentation_name
-	  def conf = params.conference
-	  def rm = params.room
-	  def textfile = params.id
-	  log.debug "Controller: Show textfile request for $presentationName $textfile"
-	  
-	  InputStream is = null;
-	  try {
-		def pres = presentationService.showTextfile(conf, rm, presentationName, textfile)
-		if (pres.exists()) {
-		  log.debug "Controller: Sending textfiles reply for $presentationName $textfile"
-		  
-		  def bytes = pres.readBytes()
-		  response.addHeader("Cache-Control", "no-cache")
-		  response.contentType = 'plain/text'
-		  response.outputStream << bytes;
-		} else {
-		  log.debug "$pres does not exist."
-		}
-	  } catch (IOException e) {
-			log.error("Error reading file.\n" + e.getMessage());
-	  }
-	  
-	  return null;
-  }
-  
-  def show = {
-    //def filename = params.id.replace('###', '.')
-    def filename = params.presentation_name
-    InputStream is = null;
-    System.out.println("showing ${filename}")
-    try {
-      def f = confInfo()
-      def pres = presentationService.showPresentation(f.conference, f.room, filename)
-      if (pres.exists()) {
-        System.out.println("Found ${filename}")
-        def bytes = pres.readBytes()
 
-        response.contentType = 'application/x-shockwave-flash'
-        response.outputStream << bytes;
-      }	
-    } catch (IOException e) {
-      System.out.println("Error reading file.\n" + e.getMessage());
-    }
-    
     return null;
   }
-  
+
   def thumbnail = {
     def filename = params.id.replace('###', '.')
-    System.out.println("showing ${filename} ${params.thumb}")
     def presDir = confDir() + File.separatorChar + filename
     try {
       def pres = presentationService.showThumbnail(presDir, params.thumb)
@@ -257,7 +249,7 @@ class PresentationController {
         response.outputStream << bytes;
       }	
     } catch (IOException e) {
-      System.out.println("Error reading file.\n" + e.getMessage());
+      log.error("Error reading file.\n" + e.getMessage());
     }
     
     return null;
@@ -289,8 +281,9 @@ class PresentationController {
     
   def numberOfThumbnails = {
     def filename = params.presentation_name
-    def f = confInfo()
-    def numThumbs = presentationService.numberOfThumbnails(f.conference, f.room, filename)
+    def conf = params.conference
+    def rm = params.room
+    def numThumbs = presentationService.numberOfThumbnails(conf, rm, filename)
       withFormat {				
         xml {
           render(contentType:"text/xml") {
@@ -310,8 +303,9 @@ class PresentationController {
 
   def numberOfSvgs = {
     def filename = params.presentation_name
-    def f = confInfo()
-    def numSvgs = presentationService.numberOfSvgs(f.conference, f.room, filename)
+    def conf = params.conference
+    def rm = params.room
+    def numSvgs = presentationService.numberOfSvgs(conf, rm, filename)
       withFormat {
         xml {
           render(contentType:"text/xml") {
@@ -330,36 +324,26 @@ class PresentationController {
   }
 
   def numberOfTextfiles = {
-	  def filename = params.presentation_name
-	  def f = confInfo()
-	  def numFiles = presentationService.numberOfTextfiles(f.conference, f.room, filename)
-		withFormat {
-		  xml {
-			render(contentType:"text/xml") {
-			  conference(id:f.conference, room:f.room) {
-				presentation(name:filename) {
-				  textfiles(count:numFiles) {
-					for (def i=0;i<numFiles;i++) {
-						textfile(name:"textfiles/${i}")
-					  }
-				  }
-				}
-			  }
-			}
-		  }
-		}
-	}
-  
-  def confInfo = {
-//    	Subject currentUser = SecurityUtils.getSubject() 
-//		Session session = currentUser.getSession()
-
-      def fname = session["fullname"]
-      def rl = session["role"]
-      def conf = session["conference"]
-      def rm = session["room"]
-      println "Conference info: ${conf} ${rm}"
-    return [conference:conf, room:rm]
+    def filename = params.presentation_name
+    def conf = params.conference
+    def rm = params.room
+    def numFiles = presentationService.numberOfTextfiles(conf, rm, filename)
+    
+    withFormat {
+      xml {
+        render(contentType:"text/xml") {
+          conference(id:f.conference, room:f.room) {
+            presentation(name:filename) {
+              textfiles(count:numFiles) {
+                for (def i=0;i<numFiles;i++) {
+                  textfile(name:"textfiles/${i}")
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 

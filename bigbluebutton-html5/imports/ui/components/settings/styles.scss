@@ -1,0 +1,58 @@
+@import "../../stylesheets/variables/_all";
+
+.tabs {
+  display: flex;
+  flex-flow: row;
+  justify-content: flex-start;
+}
+
+.tabList {
+  display: flex;
+  flex-flow: column;
+  flex-grow: 0;
+  border: none !important;
+  flex-shrink: 0;
+  border-right: 0.2rem solid #d4d9df;
+}
+
+.icon {
+  margin-right: 0.7rem;
+  color: $color-gray-light;
+}
+
+.tabSelector {
+  font-size: 0.9rem;
+  padding: 0.1rem 0 !important;
+  padding-right: 1.2rem !important;
+  display: flex !important;
+  flex-flow: row;
+  justify-content: flex-start;
+  border: none !important;
+  border-radius: 0 !important;
+  bottom: 0 !important;
+  margin: 0.5rem 0;
+  margin-right: 0.5rem;
+  transition: 0.3s color;
+  color: $color-gray-dark;
+
+  &:first-child {
+    margin-top: 0;
+  }
+
+  &[aria-selected="true"] {
+    border-right: 0.2rem solid $color-primary !important;
+    padding-right: 1rem !important;
+    color: $color-link !important;
+
+    &>.icon {
+      color: $color-link !important;
+    }
+  }
+}
+
+.tabPanel {
+  flex-grow: 1;
+  padding: 1rem;
+  padding-top: 0;
+  padding-right: 0;
+}
